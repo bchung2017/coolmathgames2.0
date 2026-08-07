@@ -1,0 +1,22 @@
+{
+  "name": "coolmathgames2.0",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Teaching-game engine — constrained LLM generation into pedagogically load-bearing minigame formats.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "migrate:pg": "tsx scripts/migrate-sqlite-to-pg.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# local env + secrets
+.env
+.env.local
+
+# SQLite database files (the zero-config default backend)
+*.db
+*.db-shm
+*.db-wal

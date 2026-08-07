@@ -84,8 +84,48 @@ Notes: **Cartridge** and **Sidequest** have the best metaphors but are likely tr
 
 ---
 
+## Data layer
+
+A portable, dual-backend persistence layer is scaffolded under `src/db/`. It
+runs on **zero-config SQLite by default** and swaps to **Postgres/Supabase**
+when `DATABASE_URL` is set — with no code change, because both backends sit
+behind one interface (`src/db/store.ts`).
+
+On Supabase it lives inside **its own Postgres schema** (`DB_SCHEMA`), so this
+app can share one Supabase project with other services without their tables
+ever colliding. `search_path` is pinned per connection, every query is
+unqualified, and a stray write can only ever hit this app's own tables. (Use
+the Supabase **Session pooler** on `:5432` — the transaction pooler drops
+`search_path`.)
+
+Three tables model the engine's domain:
+
+- `formats` — the mechanic library (the moat): each row is a game format plus
+  its JSON instantiation spec.
+- `instances` — a generated, already-schema-validated game instance for a
+  `(topic, misconception)` pair.
+- `results` — a play outcome for one instance by one student.
+
+```bash
+npm install
+npm run typecheck                     # tsc --noEmit
+
+# dev — zero config, SQLite file:
+#   (unset DATABASE_URL; getStore() opens coolmathgames.db on first use)
+
+# prod — shared Supabase, isolated schema:
+export DATABASE_URL='postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres'
+export DB_SCHEMA=coolmathgames
+npm run migrate:pg                    # one-shot SQLite -> Postgres copy (guarded)
+```
+
+See `.env.example` for all knobs. The SQLite→Postgres migration
+(`scripts/migrate-sqlite-to-pg.ts`) refuses to run into non-empty tables, so a
+second accidental run can't double-insert.
+
 ## Status
 
-Early-stage thesis. No engine yet — this README is the strategy of record.
+Early-stage thesis. No game engine yet — this README is the strategy of record,
+and `src/db/` is the portable persistence foundation it will build on.
 
 *Sources for the market read include Persistence Market Research, Technavio, Grand View Research, and My Engineering Buddy, cross-read skeptically — much of the published tutoring-market "growth" data comes from SEO firms selling reports.*
