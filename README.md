@@ -1,6 +1,12 @@
 # coolmathgames2.0
 
-A thesis, and eventually an engine, for **teaching games in the post-AI tutoring market**: constrained LLM generation poured into pedagogically load-bearing game templates.
+## Why this exists
+
+The impetus isn't "AI can make games now" — that's a solved, over-supplied capability. The impetus is that **game-based learning is one of the better-evidenced ways to make instruction work**, and it has always been bottlenecked by the cost of authoring good games, not by any doubt about whether they teach.
+
+The evidence is not soft. A controlled study of gamified statistics instruction for health-faculty students ([Khoshnoodifar, Ashouri & Taheri, 2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC10611935/)) — narrative, levels, points, progress bars, challenge, and feedback layered onto the same material — found the gamified cohort developed significantly more positive attitudes toward the subject's difficulty, value, and their own cognitive competency than a control taught by conventional problem-solving, and that measured learning correlated directly with the feedback, concentration, and challenge the gamified format supplied. That single trial sits inside a consistent meta-analytic picture: across school levels, disciplines, and delivery modes, gamification and game-based learning post medium-to-large effects on achievement (reported Hedges's *g* clustering around **1.0–1.3**, Cohen's *d* commonly **0.7–1.4**) — effect sizes that dwarf most classroom interventions.
+
+So the constraint was never "is a game a good teacher." It's "who can afford to build the right game for this exact student, this week." That is the bottleneck this project targets: pedagogically load-bearing game templates that an LLM *fills* rather than designs, driving the marginal cost of a well-formed, misconception-targeted game toward zero.
 
 ---
 
