@@ -29,14 +29,15 @@ services:
       # Postgres schema namespace — only used if DATABASE_URL is set below.
       - key: DB_SCHEMA
         value: coolmathgames
-      # Where the default SQLite file lives. Point at the disk mount if attached.
+      # Where the default SQLite file lives (used only when DATABASE_URL is unset).
       - key: SQLITE_PATH
         value: coolmathgames.db
-      # --- To persist to Postgres/Supabase instead of ephemeral SQLite: ---
-      # Set this in the Render dashboard (mark it secret), use the Supabase
-      # SESSION pooler URI on :5432 (not the transaction pooler):
-      # - key: DATABASE_URL
-      #   sync: false
+      # Supabase connection — the SECRET. `sync: false` means "declared here but
+      # valued in the Render dashboard", so it stays out of git and isn't pruned
+      # on Blueprint sync. Use the Supabase SESSION pooler URI on :5432 (NOT the
+      # transaction pooler :6543, which drops search_path and breaks isolation).
+      - key: DATABASE_URL
+        sync: false
 
     # --- Durable SQLite via a disk (uncomment; requires a paid instance) ---
     # disk:
