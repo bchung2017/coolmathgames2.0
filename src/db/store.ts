@@ -55,6 +55,21 @@ export interface PlaySessionRow {
   ended_at: number; // epoch ms
 }
 
+// Filter for queryGames — only provided fields are constrained (AND-ed).
+export interface GameFilter {
+  ownerId?: string;
+  cartridgeId?: string;
+  visibility?: string;
+  status?: string;
+  targetStudentId?: string;
+}
+
+// Mutable subset of a game (UPDATE path). owner_id, cartridge_id, and lineage
+// are intentionally NOT here — ownership/authorship/lineage are set once.
+export type GamePatch = Partial<
+  Pick<GameRow, "title" | "visibility" | "status" | "target_student_id">
+> & { updated_at: number };
+
 export interface Store {
   readonly backend: "sqlite" | "postgres";
 
@@ -68,6 +83,8 @@ export interface Store {
   getGame(gameId: string): Promise<GameRow | null>;
   allGames(): Promise<GameRow[]>;
   gamesByCartridge(cartridgeId: string): Promise<GameRow[]>;
+  queryGames(filter: GameFilter): Promise<GameRow[]>;
+  updateGame(gameId: string, patch: GamePatch): Promise<void>;
 
   // play_sessions — play outcomes
   insertPlaySession(row: PlaySessionRow): Promise<void>;

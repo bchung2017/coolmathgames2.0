@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { schemaSql } from "./schema-sql";
-import type { Store, CartridgeRow, GameRow, PlaySessionRow } from "./store";
+import type { Store, CartridgeRow, GameRow, PlaySessionRow, GameFilter, GamePatch } from "./store";
 
 /**
  * The zero-config default backend: an on-disk SQLite file. Opened lazily by
@@ -77,6 +77,31 @@ class SqliteStore implements Store {
     return this.db
       .prepare(`SELECT * FROM games WHERE cartridge_id=? ORDER BY created_at`)
       .all(cartridgeId) as GameRow[];
+  }
+
+  async queryGames(f: GameFilter): Promise<GameRow[]> {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    if (f.ownerId !== undefined) { clauses.push("owner_id=?"); params.push(f.ownerId); }
+    if (f.cartridgeId !== undefined) { clauses.push("cartridge_id=?"); params.push(f.cartridgeId); }
+    if (f.visibility !== undefined) { clauses.push("visibility=?"); params.push(f.visibility); }
+    if (f.status !== undefined) { clauses.push("status=?"); params.push(f.status); }
+    if (f.targetStudentId !== undefined) { clauses.push("target_student_id=?"); params.push(f.targetStudentId); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    return this.db
+      .prepare(`SELECT * FROM games ${where} ORDER BY created_at DESC`)
+      .all(...params) as GameRow[];
+  }
+
+  async updateGame(gameId: string, patch: GamePatch): Promise<void> {
+    const cols = ["title", "visibility", "status", "target_student_id", "updated_at"] as const;
+    const sets: string[] = [];
+    const params: Record<string, unknown> = { game_id: gameId };
+    for (const c of cols) {
+      if (c in patch) { sets.push(`${c}=@${c}`); params[c] = (patch as Record<string, unknown>)[c]; }
+    }
+    if (!sets.length) return;
+    this.db.prepare(`UPDATE games SET ${sets.join(",")} WHERE game_id=@game_id`).run(params);
   }
 
   async insertPlaySession(r: PlaySessionRow): Promise<void> {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getStore } from "@/src/db/store";
 import { getCartridgeServer } from "@/src/games/registry.server";
+import { ensureDemoGamesSeeded } from "@/src/demo/seed";
 import type { GameRow } from "@/src/db/store";
 import GameCanvas from "./GameCanvas";
 
@@ -16,8 +17,10 @@ export const dynamic = "force-dynamic";
 // Stable demo game so the Arcade "Play!" links work without generating one.
 async function loadGame(gameId: string): Promise<GameRow | null> {
   const store = await getStore();
+  if (gameId === "demo-balance-scale") await ensureDemoGamesSeeded(store);
   let game = await store.getGame(gameId);
   if (!game && gameId.startsWith("demo-")) {
+    // Other demo-* ids: mint an ad-hoc public demo on first visit.
     const cartridge = getCartridgeServer("balance-scale")!;
     const generated = cartridge.generate("2-step equations", "drops the sign on negatives");
     await store.insertGame({

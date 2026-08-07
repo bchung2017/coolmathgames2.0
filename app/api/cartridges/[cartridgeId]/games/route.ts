@@ -1,5 +1,6 @@
 import { getStore } from "@/src/db/store";
 import { ensureCartridgesSeeded, getCartridgeServer } from "@/src/games/registry.server";
+import { DEMO } from "@/src/demo/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ export async function POST(
         await store.insertGame({
           game_id: gameId,
           cartridge_id: cartridgeId,
-          owner_id: null, // no auth yet — owner is set once JWT lands (§5)
+          owner_id: DEMO.tutor.id, // the Editor is tutor-only; demo tutor owns it
           modded_from_id: null,
           title: topic,
           topic,

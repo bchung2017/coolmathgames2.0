@@ -1,7 +1,7 @@
 import { Pool, types } from "pg";
 import { pgSchema } from "./schema-name";
 import { schemaSql } from "./schema-sql";
-import type { Store, CartridgeRow, GameRow, PlaySessionRow } from "./store";
+import type { Store, CartridgeRow, GameRow, PlaySessionRow, GameFilter, GamePatch } from "./store";
 
 // pg returns BIGINT (OID 20) as a string. Our BIGINTs are epoch-ms and small
 // scores, all inside JS's safe-integer range, so parse to Number to match the
@@ -114,6 +114,38 @@ class PostgresStore implements Store {
       [cartridgeId],
     );
     return res.rows;
+  }
+
+  async queryGames(f: GameFilter): Promise<GameRow[]> {
+    await this.ready;
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    let i = 1;
+    if (f.ownerId !== undefined) { clauses.push(`owner_id=$${i++}`); params.push(f.ownerId); }
+    if (f.cartridgeId !== undefined) { clauses.push(`cartridge_id=$${i++}`); params.push(f.cartridgeId); }
+    if (f.visibility !== undefined) { clauses.push(`visibility=$${i++}`); params.push(f.visibility); }
+    if (f.status !== undefined) { clauses.push(`status=$${i++}`); params.push(f.status); }
+    if (f.targetStudentId !== undefined) { clauses.push(`target_student_id=$${i++}`); params.push(f.targetStudentId); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const res = await this.pool.query<GameRow>(
+      `SELECT * FROM games ${where} ORDER BY created_at DESC`,
+      params,
+    );
+    return res.rows;
+  }
+
+  async updateGame(gameId: string, patch: GamePatch): Promise<void> {
+    await this.ready;
+    const cols = ["title", "visibility", "status", "target_student_id", "updated_at"] as const;
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    let i = 1;
+    for (const c of cols) {
+      if (c in patch) { sets.push(`${c}=$${i++}`); params.push((patch as Record<string, unknown>)[c]); }
+    }
+    if (!sets.length) return;
+    params.push(gameId);
+    await this.pool.query(`UPDATE games SET ${sets.join(",")} WHERE game_id=$${i}`, params);
   }
 
   async insertPlaySession(r: PlaySessionRow): Promise<void> {
