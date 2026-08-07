@@ -71,6 +71,113 @@ Small: templated web minigames (canvas / JS), one JSON schema per format, one LL
 
 ---
 
+## Does AI-generated learning content actually work? (And what does it cost?)
+
+The thesis above rests on two empirical bets: that AI collapses the cost of
+*generating* content, and that games are a pedagogically worthwhile container to
+pour it into. Both are testable. Numbers below come from published
+meta-analyses, a peer-reviewed item-generation study (IEEE TVCG 2025), and the
+assessment-industry literature. Every chart has a catch, and the catch is in the
+caption.
+
+### 1. The price of one quiz question
+
+![Cost per item and reviewed-drafts-per-hour: a $2,000 traditional expert-written item vs. a $0.28 AI-assisted draft, and a measured 4× throughput gain (8.4 → 34 reviewed drafts/hr)](docs/assets/item-cost-and-throughput.svg)
+
+**ELI5:** AI made *writing* a question nearly free. It did not make *trusting* a
+question free.
+
+Where the numbers come from:
+
+- **$2,000** is the long-standing assessment-industry benchmark for one
+  operational high-stakes item (Rudner 2010, the standard citation in the
+  automatic item generation literature). It bundles the full chain: a
+  subject-matter expert writes it, then content review, bias/sensitivity review,
+  editing, pretesting on real students, and psychometric analysis.
+- **$0.28** was measured empirically in a peer-reviewed study (Cui et al.,
+  *Promises and Pitfalls*, IEEE TVCG 2025): ~$0.05 of GPT-4 API cost plus $0.23
+  of expert review time ($20/hr × 16 hours spread across 1,103 generated items).
+  That buys a reviewed *draft* — pretesting and psychometric calibration still
+  cost what they always did.
+
+So the two bars aren't the same product, and the chart says so: the hatched
+block is the validation work the $0.28 doesn't cover. The defensible claims are
+the right panel's — same expert, same deliverable, a measured **4× throughput
+gain** (8.4 → 34 reviewed drafts per hour) — and that *total* cost per validated
+item drops substantially because the drafting stage collapsed. "7,000× cheaper"
+is **not** a defensible claim.
+
+This is exactly why our architecture keeps the LLM inside a validating schema:
+cheap drafting is real, cheap *trust* is not, so the engine (not the model) is
+where correctness is enforced.
+
+### 2. Do learning games work at all?
+
+![Forest-plot-style chart of pooled effect sizes (Hedges' g) from seven meta-analyses of learning games; most cluster at g ≈ 0.3–0.7, with one Turkey-only outlier at g = 1.695 flagged as publication bias](docs/assets/learning-games-effect-sizes.svg)
+
+**How to read this chart:** each row on the y-axis is one meta-analysis — a study
+that collects dozens of separate classroom experiments ("game group vs.
+regular-lesson group") and pools them into a single average effect. The dot is
+that pooled average; the whiskers are the 95% confidence interval where the
+paper reported one. The x-axis is Hedges' *g*, the standard way to express "how
+many standard deviations better did the game group score." Rules of thumb: 0.2
+is small, 0.5 medium, 0.8 large. Concretely, *g* = 0.667 means an average
+student moves from the 50th to roughly the 75th percentile.
+
+One nuance: the rows aren't all the same comparison. The top rows compare
+*games vs. no games*. "Enhanced game vs. basic version" and "adding hints &
+worked examples" compare a better-designed game against a plain one — they
+measure what game *design* adds, not what games add.
+
+**ELI5:** every big review says games beat regular lessons by a modest-to-decent
+amount (*g* ≈ 0.3–0.7). Then there's one claiming an effect nearly 3× larger
+than everyone else's.
+
+**The catch:** that outlier (*g* = 1.695, Yilmaz 2021) pooled 38 studies
+exclusively from Turkey, including unpublished master's theses. Huge effect
+sizes in education research usually signal publication bias, not miracle
+pedagogy. The boring takeaway is the reliable one: well-designed games help, and
+**explicit scaffolding (hints, worked examples) drives the gains** — not story,
+graphics, or the fact that it's a game. That is the empirical backbone of "the
+pedagogy is load-bearing, the game is the container."
+
+### 3. The pipeline that actually works
+
+Nobody serious ships raw LLM output to students. The working architecture:
+
+```mermaid
+flowchart LR
+    A[LLM drafts questions<br/>~34/hr, ~$0.05 each] --> B{Human expert review}
+    B -->|~25% perfect| C[Approve]
+    B -->|~50% fixable| D[Edit distractors,<br/>fix drift] --> C
+    B -->|~25% garbage| E[Reject]
+    C --> F[Psychometric calibration<br/>IRT / difficulty tracking]
+    F --> G[Live in game]
+    G -.student response data.-> F
+```
+
+**ELI5:** the robot writes, the human edits, the stats check the human, and
+student answers feed back into the stats. AI is the intern, not the teacher.
+
+### Sources
+
+- Rudner, L. (2010) — ~$1,500–$2,500 per operational high-stakes item; the
+  standard citation in automatic item generation (AIG) reviews (e.g. ERIC
+  EJ1476463)
+- Cui et al., "Promises and Pitfalls: Using LLMs to Generate Visualization
+  Items," IEEE TVCG 2025 — $0.28/item, 8.4 vs 34 items/hr, 25/50/25 quality
+  split, κ ≈ 0.1
+- Wang et al. 2022, *Int. J. STEM Education* — ES = 0.667, 95% CI
+  [0.520–0.814], 33 studies, N = 3,894
+- Yilmaz 2021, *Tech. Knowl. Learn.* — *g* = 1.695, 38 Turkish studies (the
+  outlier)
+- Clark et al. 2016, *Rev. Educ. Research* — games vs. non-game *g* ≈ 0.33;
+  enhanced vs. basic design *g* ≈ 0.34
+- Gao et al. 2022, *Studies in Science Education* — early-STEM cognition
+  *g* = .67, motivation *g* = .51, behavior *g* = .93
+
+---
+
 ## Naming candidates
 
 Grouped by angle (none checked for domain/trademark availability — do that before committing):
