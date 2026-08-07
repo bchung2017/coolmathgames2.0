@@ -16,6 +16,7 @@ services:
     name: coolmathgames2
     runtime: node
     plan: free
+    branch: main
     autoDeploy: true
     buildCommand: npm ci && npm run build
     startCommand: npm start
