@@ -146,6 +146,15 @@ export default function Home() {
     await fetch(`/api/games/${id}/mod`, { method: "POST" });
     await loadCatalog();
   }
+  async function deleteGame(id: string, label: string) {
+    if (!window.confirm(`Delete "${label}"? This removes the game and its play sessions.`)) return;
+    setCatalog((xs) => xs.filter((x) => x.game_id !== id)); // optimistic
+    const res = await fetch(`/api/games/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      await loadCatalog(); // rollback on failure
+      window.alert("Delete failed — restored the list.");
+    }
+  }
 
   async function generate() {
     if (busy) return;
@@ -378,6 +387,7 @@ export default function Home() {
                   onPublish={() => publish(g.game_id)}
                   onSend={() => sendToStudent(g.game_id)}
                   onMod={() => modGame(g.game_id)}
+                  onDelete={() => deleteGame(g.game_id, g.title ?? g.topic)}
                 />
               ))}
             </div>
@@ -460,6 +470,7 @@ function CatalogCard({
   onPublish,
   onSend,
   onMod,
+  onDelete,
 }: {
   game: EnrichedGame;
   index: number;
@@ -467,6 +478,7 @@ function CatalogCard({
   onPublish: () => void;
   onSend: () => void;
   onMod: () => void;
+  onDelete: () => void;
 }) {
   const color = COLORS[index % COLORS.length];
   const tag = game.status === "sent_to_student" ? "sent" : game.status;
@@ -502,6 +514,15 @@ function CatalogCard({
         <button className="btn red" onClick={onMod}>
           Mod
         </button>
+        {view === "mine" && (
+          <button
+            className="btn red"
+            onClick={onDelete}
+            aria-label={`Delete ${game.title ?? game.topic}`}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );

@@ -46,3 +46,20 @@ export async function PATCH(
   await store.updateGame(gameId, patch);
   return Response.json(await store.getGame(gameId));
 }
+
+/**
+ * DELETE /api/games/:gameId — remove a game from the catalog, along with its
+ * play sessions; any mods derived from it are detached (lineage nulled), not
+ * deleted. The supported delete path, so pruning a catalog never means opening
+ * the database.
+ */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ gameId: string }> },
+) {
+  const { gameId } = await params;
+  const store = await getStore();
+  const deleted = await store.deleteGame(gameId);
+  if (!deleted) return new Response("not found", { status: 404 });
+  return Response.json({ ok: true, deleted });
+}

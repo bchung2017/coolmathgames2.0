@@ -104,6 +104,17 @@ class SqliteStore implements Store {
     this.db.prepare(`UPDATE games SET ${sets.join(",")} WHERE game_id=@game_id`).run(params);
   }
 
+  async deleteGame(gameId: string): Promise<number> {
+    // Detach mods derived from this game (lineage pointer is nullable, no FK),
+    // drop its play sessions, then the game itself — atomically.
+    const tx = this.db.transaction((id: string) => {
+      this.db.prepare(`UPDATE games SET modded_from_id=NULL WHERE modded_from_id=?`).run(id);
+      this.db.prepare(`DELETE FROM play_sessions WHERE game_id=?`).run(id);
+      return this.db.prepare(`DELETE FROM games WHERE game_id=?`).run(id).changes;
+    });
+    return tx(gameId) as number;
+  }
+
   async insertPlaySession(r: PlaySessionRow): Promise<void> {
     this.db
       .prepare(
