@@ -10,50 +10,69 @@
  * SQLite (the zero-config default).
  */
 
-export interface FormatRow {
-  format_id: string;
+// Row shapes mirror the DDL in schema-sql.ts (TECH_SPEC.md §2 vocabulary).
+// User-referencing ids are nullable strings until the User entity exists.
+
+export interface CartridgeRow {
+  cartridge_id: string;
   name: string;
+  slug: string;
   concept_class: string;
-  spec: string; // JSON string
+  author_id: string | null;
+  schema_json: string; // JSON string
+  engine_bundle_url: string | null;
+  status: string; // draft | published
+  schema_version: number;
   created_at: number; // epoch ms
+  updated_at: number; // epoch ms
 }
 
-export interface InstanceRow {
-  instance_id: string;
-  format_id: string;
+export interface GameRow {
+  game_id: string;
+  cartridge_id: string;
+  owner_id: string | null;
+  modded_from_id: string | null; // self-ref — mod lineage
+  title: string | null;
   topic: string;
   misconception: string | null;
-  items: string; // JSON string
+  instance_data_json: string; // JSON string
+  visibility: string; // private | public
+  status: string; // draft | published | sent_to_student
+  target_student_id: string | null;
+  schema_version_at_creation: number;
   created_at: number; // epoch ms
+  updated_at: number; // epoch ms
 }
 
-export interface ResultRow {
-  result_id: string;
-  instance_id: string;
-  student_id: string;
+export interface PlaySessionRow {
+  session_id: string;
+  game_id: string;
+  player_id: string | null; // NULL for anon plays
   score: number;
+  completed: number; // 0 | 1
   detail: string | null; // JSON string
-  played_at: number; // epoch ms
+  started_at: number | null; // epoch ms
+  ended_at: number; // epoch ms
 }
 
 export interface Store {
   readonly backend: "sqlite" | "postgres";
 
-  // formats — the mechanic library
-  upsertFormat(row: FormatRow): Promise<void>;
-  getFormat(formatId: string): Promise<FormatRow | null>;
-  allFormats(): Promise<FormatRow[]>;
+  // cartridges — the mechanic library
+  upsertCartridge(row: CartridgeRow): Promise<void>;
+  getCartridge(cartridgeId: string): Promise<CartridgeRow | null>;
+  allCartridges(): Promise<CartridgeRow[]>;
 
-  // instances — generated game instances
-  insertInstance(row: InstanceRow): Promise<void>;
-  getInstance(instanceId: string): Promise<InstanceRow | null>;
-  allInstances(): Promise<InstanceRow[]>;
-  instancesByFormat(formatId: string): Promise<InstanceRow[]>;
+  // games — generated game instances
+  insertGame(row: GameRow): Promise<void>;
+  getGame(gameId: string): Promise<GameRow | null>;
+  allGames(): Promise<GameRow[]>;
+  gamesByCartridge(cartridgeId: string): Promise<GameRow[]>;
 
-  // results — play outcomes
-  insertResult(row: ResultRow): Promise<void>;
-  resultsForStudent(studentId: string): Promise<ResultRow[]>;
-  resultsForInstance(instanceId: string): Promise<ResultRow[]>;
+  // play_sessions — play outcomes
+  insertPlaySession(row: PlaySessionRow): Promise<void>;
+  sessionsForPlayer(playerId: string): Promise<PlaySessionRow[]>;
+  sessionsForGame(gameId: string): Promise<PlaySessionRow[]>;
 }
 
 // Pin the instance on a global so dev hot-reload doesn't reopen the DB handle

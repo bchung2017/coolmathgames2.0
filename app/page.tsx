@@ -59,7 +59,7 @@ export default function Home() {
       { who: "engine", text: "" },
     ]);
     try {
-      const res = await fetch(`/api/formats/${cartridge}/instances`, {
+      const res = await fetch(`/api/cartridges/${cartridge}/games`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ topic, misconception, instruction }),
@@ -82,7 +82,7 @@ export default function Home() {
           const rest = buf.slice(marker + "[[INSTANCE]]".length).trim();
           try {
             const parsed = JSON.parse(rest);
-            previewId = parsed.instanceId;
+            previewId = parsed.gameId;
             pre = parsed.preview;
           } catch {
             /* still streaming the json tail */

@@ -5,17 +5,17 @@ import { loadEngine } from "@/src/games/registry.client";
 import type { PlayResult } from "@/src/games/types";
 
 /**
- * Client mount point for a format engine. React owns nothing about the game —
+ * Client mount point for a cartridge engine. React owns nothing about the game —
  * it hands the engine a <div> and the validated instance, and reports the
- * result back to the store when the engine finishes.
+ * PlaySession back to the store when the engine finishes.
  */
 export default function GameCanvas({
-  instanceId,
-  formatId,
+  gameId,
+  cartridgeId,
   instance,
 }: {
-  instanceId: string;
-  formatId: string;
+  gameId: string;
+  cartridgeId: string;
   instance: unknown;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -27,19 +27,20 @@ export default function GameCanvas({
     let cancelled = false;
 
     (async () => {
-      const engine = await loadEngine(formatId);
+      const engine = await loadEngine(cartridgeId);
       if (!engine) {
-        setError(`No engine for format "${formatId}"`);
+        setError(`No engine for cartridge "${cartridgeId}"`);
         return;
       }
       if (cancelled || !hostRef.current) return;
       teardown = engine.mount(hostRef.current, instance, async (r) => {
         setResult(r);
-        // student_id would come from the share link / first-run prompt (see UX doc).
-        await fetch(`/api/instances/${instanceId}/results`, {
+        // Anon play: player_id stays null (§5). A logged-in Student player_id
+        // would come from the JWT / share link once auth lands.
+        await fetch(`/api/games/${gameId}/sessions`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ student_id: "demo-player", score: r.score, detail: r.detail }),
+          body: JSON.stringify({ player_id: null, score: r.score, completed: true, detail: r.detail }),
         }).catch(() => {});
       });
     })();
@@ -48,7 +49,7 @@ export default function GameCanvas({
       cancelled = true;
       teardown?.();
     };
-  }, [instanceId, formatId, instance]);
+  }, [gameId, cartridgeId, instance]);
 
   if (error) return <p className="mod red">{error}</p>;
 

@@ -1,7 +1,7 @@
 import { Pool, types } from "pg";
 import { pgSchema } from "./schema-name";
 import { schemaSql } from "./schema-sql";
-import type { Store, FormatRow, InstanceRow, ResultRow } from "./store";
+import type { Store, CartridgeRow, GameRow, PlaySessionRow } from "./store";
 
 // pg returns BIGINT (OID 20) as a string. Our BIGINTs are epoch-ms and small
 // scores, all inside JS's safe-integer range, so parse to Number to match the
@@ -46,95 +46,99 @@ class PostgresStore implements Store {
       .then(() => undefined);
   }
 
-  async upsertFormat(r: FormatRow): Promise<void> {
+  async upsertCartridge(r: CartridgeRow): Promise<void> {
     await this.ready;
     await this.pool.query(
-      `INSERT INTO formats(format_id,name,concept_class,spec,created_at)
-       VALUES($1,$2,$3,$4,$5)
-       ON CONFLICT(format_id) DO UPDATE SET
+      `INSERT INTO cartridges(cartridge_id,name,slug,concept_class,author_id,schema_json,engine_bundle_url,status,schema_version,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT(cartridge_id) DO UPDATE SET
          name=excluded.name,
+         slug=excluded.slug,
          concept_class=excluded.concept_class,
-         spec=excluded.spec,
-         created_at=excluded.created_at`,
-      [r.format_id, r.name, r.concept_class, r.spec, r.created_at],
+         schema_json=excluded.schema_json,
+         engine_bundle_url=excluded.engine_bundle_url,
+         status=excluded.status,
+         schema_version=excluded.schema_version,
+         updated_at=excluded.updated_at`,
+      [r.cartridge_id, r.name, r.slug, r.concept_class, r.author_id, r.schema_json, r.engine_bundle_url, r.status, r.schema_version, r.created_at, r.updated_at],
     );
   }
 
-  async getFormat(formatId: string): Promise<FormatRow | null> {
+  async getCartridge(cartridgeId: string): Promise<CartridgeRow | null> {
     await this.ready;
-    const res = await this.pool.query<FormatRow>(
-      `SELECT * FROM formats WHERE format_id=$1`,
-      [formatId],
-    );
-    return res.rows[0] ?? null;
-  }
-
-  async allFormats(): Promise<FormatRow[]> {
-    await this.ready;
-    const res = await this.pool.query<FormatRow>(
-      `SELECT * FROM formats ORDER BY created_at`,
-    );
-    return res.rows;
-  }
-
-  async insertInstance(r: InstanceRow): Promise<void> {
-    await this.ready;
-    await this.pool.query(
-      `INSERT INTO instances(instance_id,format_id,topic,misconception,items,created_at)
-       VALUES($1,$2,$3,$4,$5,$6)`,
-      [r.instance_id, r.format_id, r.topic, r.misconception, r.items, r.created_at],
-    );
-  }
-
-  async getInstance(instanceId: string): Promise<InstanceRow | null> {
-    await this.ready;
-    const res = await this.pool.query<InstanceRow>(
-      `SELECT * FROM instances WHERE instance_id=$1`,
-      [instanceId],
+    const res = await this.pool.query<CartridgeRow>(
+      `SELECT * FROM cartridges WHERE cartridge_id=$1`,
+      [cartridgeId],
     );
     return res.rows[0] ?? null;
   }
 
-  async allInstances(): Promise<InstanceRow[]> {
+  async allCartridges(): Promise<CartridgeRow[]> {
     await this.ready;
-    const res = await this.pool.query<InstanceRow>(
-      `SELECT * FROM instances ORDER BY created_at DESC`,
+    const res = await this.pool.query<CartridgeRow>(
+      `SELECT * FROM cartridges ORDER BY created_at`,
     );
     return res.rows;
   }
 
-  async instancesByFormat(formatId: string): Promise<InstanceRow[]> {
-    await this.ready;
-    const res = await this.pool.query<InstanceRow>(
-      `SELECT * FROM instances WHERE format_id=$1 ORDER BY created_at`,
-      [formatId],
-    );
-    return res.rows;
-  }
-
-  async insertResult(r: ResultRow): Promise<void> {
+  async insertGame(r: GameRow): Promise<void> {
     await this.ready;
     await this.pool.query(
-      `INSERT INTO results(result_id,instance_id,student_id,score,detail,played_at)
-       VALUES($1,$2,$3,$4,$5,$6)`,
-      [r.result_id, r.instance_id, r.student_id, r.score, r.detail, r.played_at],
+      `INSERT INTO games(game_id,cartridge_id,owner_id,modded_from_id,title,topic,misconception,instance_data_json,visibility,status,target_student_id,schema_version_at_creation,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [r.game_id, r.cartridge_id, r.owner_id, r.modded_from_id, r.title, r.topic, r.misconception, r.instance_data_json, r.visibility, r.status, r.target_student_id, r.schema_version_at_creation, r.created_at, r.updated_at],
     );
   }
 
-  async resultsForStudent(studentId: string): Promise<ResultRow[]> {
+  async getGame(gameId: string): Promise<GameRow | null> {
     await this.ready;
-    const res = await this.pool.query<ResultRow>(
-      `SELECT * FROM results WHERE student_id=$1 ORDER BY played_at`,
-      [studentId],
+    const res = await this.pool.query<GameRow>(
+      `SELECT * FROM games WHERE game_id=$1`,
+      [gameId],
+    );
+    return res.rows[0] ?? null;
+  }
+
+  async allGames(): Promise<GameRow[]> {
+    await this.ready;
+    const res = await this.pool.query<GameRow>(
+      `SELECT * FROM games ORDER BY created_at DESC`,
     );
     return res.rows;
   }
 
-  async resultsForInstance(instanceId: string): Promise<ResultRow[]> {
+  async gamesByCartridge(cartridgeId: string): Promise<GameRow[]> {
     await this.ready;
-    const res = await this.pool.query<ResultRow>(
-      `SELECT * FROM results WHERE instance_id=$1 ORDER BY played_at`,
-      [instanceId],
+    const res = await this.pool.query<GameRow>(
+      `SELECT * FROM games WHERE cartridge_id=$1 ORDER BY created_at`,
+      [cartridgeId],
+    );
+    return res.rows;
+  }
+
+  async insertPlaySession(r: PlaySessionRow): Promise<void> {
+    await this.ready;
+    await this.pool.query(
+      `INSERT INTO play_sessions(session_id,game_id,player_id,score,completed,detail,started_at,ended_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [r.session_id, r.game_id, r.player_id, r.score, r.completed, r.detail, r.started_at, r.ended_at],
+    );
+  }
+
+  async sessionsForPlayer(playerId: string): Promise<PlaySessionRow[]> {
+    await this.ready;
+    const res = await this.pool.query<PlaySessionRow>(
+      `SELECT * FROM play_sessions WHERE player_id=$1 ORDER BY ended_at`,
+      [playerId],
+    );
+    return res.rows;
+  }
+
+  async sessionsForGame(gameId: string): Promise<PlaySessionRow[]> {
+    await this.ready;
+    const res = await this.pool.query<PlaySessionRow>(
+      `SELECT * FROM play_sessions WHERE game_id=$1 ORDER BY ended_at`,
+      [gameId],
     );
     return res.rows;
   }
