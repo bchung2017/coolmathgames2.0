@@ -1,4 +1,4 @@
-import type { BalanceInstance, FormatEngine, PlayResult } from "../types";
+import type { BalanceInstance, CartridgeEngine, PlayResult } from "../types";
 
 /**
  * balance-scale client engine. Pure DOM/canvas — no framework. It builds its
@@ -7,7 +7,7 @@ import type { BalanceInstance, FormatEngine, PlayResult } from "../types";
  * it a div and the validated instance; the game logic lives here so the format
  * stays portable (the "moat" is framework-independent).
  */
-export const balanceScaleEngine: FormatEngine<BalanceInstance> = {
+export const balanceScaleEngine: CartridgeEngine<BalanceInstance> = {
   mount(container, instance, onComplete) {
     const items = instance.items;
     let idx = 0;

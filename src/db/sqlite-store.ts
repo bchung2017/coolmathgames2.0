@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { schemaSql } from "./schema-sql";
-import type { Store, FormatRow, InstanceRow, ResultRow } from "./store";
+import type { Store, CartridgeRow, GameRow, PlaySessionRow, GameFilter, GamePatch } from "./store";
 
 /**
  * The zero-config default backend: an on-disk SQLite file. Opened lazily by
@@ -20,80 +20,109 @@ class SqliteStore implements Store {
     this.db.exec(schemaSql());
   }
 
-  async upsertFormat(r: FormatRow): Promise<void> {
+  async upsertCartridge(r: CartridgeRow): Promise<void> {
     this.db
       .prepare(
-        `INSERT INTO formats(format_id,name,concept_class,spec,created_at)
-         VALUES(@format_id,@name,@concept_class,@spec,@created_at)
-         ON CONFLICT(format_id) DO UPDATE SET
+        `INSERT INTO cartridges(cartridge_id,name,slug,concept_class,author_id,schema_json,engine_bundle_url,status,schema_version,created_at,updated_at)
+         VALUES(@cartridge_id,@name,@slug,@concept_class,@author_id,@schema_json,@engine_bundle_url,@status,@schema_version,@created_at,@updated_at)
+         ON CONFLICT(cartridge_id) DO UPDATE SET
            name=excluded.name,
+           slug=excluded.slug,
            concept_class=excluded.concept_class,
-           spec=excluded.spec,
-           created_at=excluded.created_at`,
+           schema_json=excluded.schema_json,
+           engine_bundle_url=excluded.engine_bundle_url,
+           status=excluded.status,
+           schema_version=excluded.schema_version,
+           updated_at=excluded.updated_at`,
       )
       .run(r);
   }
 
-  async getFormat(formatId: string): Promise<FormatRow | null> {
+  async getCartridge(cartridgeId: string): Promise<CartridgeRow | null> {
     const row = this.db
-      .prepare(`SELECT * FROM formats WHERE format_id=?`)
-      .get(formatId) as FormatRow | undefined;
+      .prepare(`SELECT * FROM cartridges WHERE cartridge_id=?`)
+      .get(cartridgeId) as CartridgeRow | undefined;
     return row ?? null;
   }
 
-  async allFormats(): Promise<FormatRow[]> {
+  async allCartridges(): Promise<CartridgeRow[]> {
     return this.db
-      .prepare(`SELECT * FROM formats ORDER BY created_at`)
-      .all() as FormatRow[];
+      .prepare(`SELECT * FROM cartridges ORDER BY created_at`)
+      .all() as CartridgeRow[];
   }
 
-  async insertInstance(r: InstanceRow): Promise<void> {
+  async insertGame(r: GameRow): Promise<void> {
     this.db
       .prepare(
-        `INSERT INTO instances(instance_id,format_id,topic,misconception,items,created_at)
-         VALUES(@instance_id,@format_id,@topic,@misconception,@items,@created_at)`,
+        `INSERT INTO games(game_id,cartridge_id,owner_id,modded_from_id,title,topic,misconception,instance_data_json,visibility,status,target_student_id,schema_version_at_creation,created_at,updated_at)
+         VALUES(@game_id,@cartridge_id,@owner_id,@modded_from_id,@title,@topic,@misconception,@instance_data_json,@visibility,@status,@target_student_id,@schema_version_at_creation,@created_at,@updated_at)`,
       )
       .run(r);
   }
 
-  async getInstance(instanceId: string): Promise<InstanceRow | null> {
+  async getGame(gameId: string): Promise<GameRow | null> {
     const row = this.db
-      .prepare(`SELECT * FROM instances WHERE instance_id=?`)
-      .get(instanceId) as InstanceRow | undefined;
+      .prepare(`SELECT * FROM games WHERE game_id=?`)
+      .get(gameId) as GameRow | undefined;
     return row ?? null;
   }
 
-  async allInstances(): Promise<InstanceRow[]> {
+  async allGames(): Promise<GameRow[]> {
     return this.db
-      .prepare(`SELECT * FROM instances ORDER BY created_at DESC`)
-      .all() as InstanceRow[];
+      .prepare(`SELECT * FROM games ORDER BY created_at DESC`)
+      .all() as GameRow[];
   }
 
-  async instancesByFormat(formatId: string): Promise<InstanceRow[]> {
+  async gamesByCartridge(cartridgeId: string): Promise<GameRow[]> {
     return this.db
-      .prepare(`SELECT * FROM instances WHERE format_id=? ORDER BY created_at`)
-      .all(formatId) as InstanceRow[];
+      .prepare(`SELECT * FROM games WHERE cartridge_id=? ORDER BY created_at`)
+      .all(cartridgeId) as GameRow[];
   }
 
-  async insertResult(r: ResultRow): Promise<void> {
+  async queryGames(f: GameFilter): Promise<GameRow[]> {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    if (f.ownerId !== undefined) { clauses.push("owner_id=?"); params.push(f.ownerId); }
+    if (f.cartridgeId !== undefined) { clauses.push("cartridge_id=?"); params.push(f.cartridgeId); }
+    if (f.visibility !== undefined) { clauses.push("visibility=?"); params.push(f.visibility); }
+    if (f.status !== undefined) { clauses.push("status=?"); params.push(f.status); }
+    if (f.targetStudentId !== undefined) { clauses.push("target_student_id=?"); params.push(f.targetStudentId); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    return this.db
+      .prepare(`SELECT * FROM games ${where} ORDER BY created_at DESC`)
+      .all(...params) as GameRow[];
+  }
+
+  async updateGame(gameId: string, patch: GamePatch): Promise<void> {
+    const cols = ["title", "visibility", "status", "target_student_id", "updated_at"] as const;
+    const sets: string[] = [];
+    const params: Record<string, unknown> = { game_id: gameId };
+    for (const c of cols) {
+      if (c in patch) { sets.push(`${c}=@${c}`); params[c] = (patch as Record<string, unknown>)[c]; }
+    }
+    if (!sets.length) return;
+    this.db.prepare(`UPDATE games SET ${sets.join(",")} WHERE game_id=@game_id`).run(params);
+  }
+
+  async insertPlaySession(r: PlaySessionRow): Promise<void> {
     this.db
       .prepare(
-        `INSERT INTO results(result_id,instance_id,student_id,score,detail,played_at)
-         VALUES(@result_id,@instance_id,@student_id,@score,@detail,@played_at)`,
+        `INSERT INTO play_sessions(session_id,game_id,player_id,score,completed,detail,started_at,ended_at)
+         VALUES(@session_id,@game_id,@player_id,@score,@completed,@detail,@started_at,@ended_at)`,
       )
       .run(r);
   }
 
-  async resultsForStudent(studentId: string): Promise<ResultRow[]> {
+  async sessionsForPlayer(playerId: string): Promise<PlaySessionRow[]> {
     return this.db
-      .prepare(`SELECT * FROM results WHERE student_id=? ORDER BY played_at`)
-      .all(studentId) as ResultRow[];
+      .prepare(`SELECT * FROM play_sessions WHERE player_id=? ORDER BY ended_at`)
+      .all(playerId) as PlaySessionRow[];
   }
 
-  async resultsForInstance(instanceId: string): Promise<ResultRow[]> {
+  async sessionsForGame(gameId: string): Promise<PlaySessionRow[]> {
     return this.db
-      .prepare(`SELECT * FROM results WHERE instance_id=? ORDER BY played_at`)
-      .all(instanceId) as ResultRow[];
+      .prepare(`SELECT * FROM play_sessions WHERE game_id=? ORDER BY ended_at`)
+      .all(gameId) as PlaySessionRow[];
   }
 }
 

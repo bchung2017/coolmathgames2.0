@@ -1,5 +1,6 @@
 import { getStore } from "@/src/db/store";
-import { ensureFormatsSeeded, getFormatServer } from "@/src/games/registry.server";
+import { ensureCartridgesSeeded, getCartridgeServer } from "@/src/games/registry.server";
+import { DEMO } from "@/src/demo/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,23 +8,24 @@ export const dynamic = "force-dynamic";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * POST /api/formats/:formatId/instances — the Authoring / generate flow.
+ * POST /api/cartridges/:cartridgeId/games — the Authoring / generate flow.
  *
  * This is the ONE route that isn't a store pass-through: it runs the engine
- * (fill the schema for topic + misconception, then VALIDATE) before storing.
- * It streams status text back so the Level Editor reads as a chat. Today the
- * fill is a deterministic stub; swapping in an LLM changes only format.generate.
+ * (fill the schema for topic + misconception, then VALIDATE) before storing a
+ * draft Game. It streams status text back so the Level Editor reads as a chat.
+ * Today the fill is a deterministic stub; swapping in the LLM (TECH_SPEC.md
+ * §3.6, §4.2) changes only cartridge.generate.
  *
  * Protocol: plain-text status chunks, then a final `[[INSTANCE]]{json}` marker
- * carrying { instanceId, preview } for the client to turn into a Preview link.
+ * carrying { gameId, preview } for the client to turn into a Preview link.
  */
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ formatId: string }> },
+  { params }: { params: Promise<{ cartridgeId: string }> },
 ) {
-  const { formatId } = await params;
-  const format = getFormatServer(formatId);
-  if (!format) return new Response(`unknown format "${formatId}"`, { status: 400 });
+  const { cartridgeId } = await params;
+  const cartridge = getCartridgeServer(cartridgeId);
+  if (!cartridge) return new Response(`unknown cartridge "${cartridgeId}"`, { status: 400 });
 
   const body = (await req.json().catch(() => ({}))) as {
     topic?: string;
@@ -33,7 +35,7 @@ export async function POST(
   const misconception = body.misconception?.trim() || null;
 
   const store = await getStore();
-  await ensureFormatsSeeded(store);
+  await ensureCartridgesSeeded(store);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -47,8 +49,8 @@ export async function POST(
         send("Filling the balance-scale schema with items + distractors…\n");
         await sleep(320);
 
-        const instance = format.generate(topic, misconception);
-        const invalid = format.validate(instance);
+        const instance = cartridge.generate(topic, misconception);
+        const invalid = cartridge.validate(instance);
         if (invalid) {
           // The quality gate: a bad fill never ships. (Stub is always valid.)
           send(`\nValidation failed (${invalid}) — regenerating would go here.\n`);
@@ -59,7 +61,7 @@ export async function POST(
         const items = (instance as { items: unknown[] }).items;
         const preview = JSON.stringify(
           {
-            format: formatId,
+            cartridge: cartridgeId,
             topic,
             misconception: misconception ?? "(none)",
             items: items.length,
@@ -70,18 +72,27 @@ export async function POST(
           2,
         );
 
-        const instanceId = crypto.randomUUID();
-        await store.insertInstance({
-          instance_id: instanceId,
-          format_id: formatId,
+        const gameId = crypto.randomUUID();
+        const now = Date.now();
+        await store.insertGame({
+          game_id: gameId,
+          cartridge_id: cartridgeId,
+          owner_id: DEMO.tutor.id, // the Editor is tutor-only; demo tutor owns it
+          modded_from_id: null,
+          title: topic,
           topic,
           misconception,
-          items: JSON.stringify(instance),
-          created_at: Date.now(),
+          instance_data_json: JSON.stringify(instance),
+          visibility: "private",
+          status: "draft",
+          target_student_id: null,
+          schema_version_at_creation: 1,
+          created_at: now,
+          updated_at: now,
         });
 
         send("Level ready! Preview it, or tell me what to change.\n");
-        send("[[INSTANCE]]" + JSON.stringify({ instanceId, preview }));
+        send("[[INSTANCE]]" + JSON.stringify({ gameId, preview }));
         controller.close();
       } catch (err) {
         send("\nError: " + (err as Error).message);

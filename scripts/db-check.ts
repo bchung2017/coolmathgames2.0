@@ -53,11 +53,11 @@ async function main(): Promise<void> {
     // 3. Did the tables land in OUR schema, and not leak into public?
     const rows = (
       await pool.query(
-        `select table_schema from information_schema.tables where table_name = 'instances'`,
+        `select table_schema from information_schema.tables where table_name = 'games'`,
       )
     ).rows.map((r) => r.table_schema as string);
-    console.log(`  'instances' found in schema(s): ${rows.join(", ") || "(none)"}`);
-    if (!rows.includes(schema)) throw new Error(`'instances' is not in "${schema}"`);
+    console.log(`  'games' found in schema(s): ${rows.join(", ") || "(none)"}`);
+    if (!rows.includes(schema)) throw new Error(`'games' is not in "${schema}"`);
     if (schema !== "public" && rows.includes("public")) {
       console.warn(
         "  ! also present in public — a prior run likely used the transaction pooler; investigate before trusting isolation.",
@@ -69,14 +69,14 @@ async function main(): Promise<void> {
     // 4. Round-trip a probe row through unqualified SQL, then clean it up.
     const probe = "db-check-probe";
     await pool.query(
-      `insert into instances(instance_id,format_id,topic,misconception,items,created_at)
-       values($1,'balance-scale','db:check probe',null,'{}',0)
-       on conflict(instance_id) do nothing`,
+      `insert into games(game_id,cartridge_id,owner_id,modded_from_id,title,topic,misconception,instance_data_json,visibility,status,target_student_id,schema_version_at_creation,created_at,updated_at)
+       values($1,'balance-scale',null,null,'db:check probe','db:check probe',null,'{}','private','draft',null,1,0,0)
+       on conflict(game_id) do nothing`,
       [probe],
     );
-    const back = await pool.query(`select instance_id from instances where instance_id=$1`, [probe]);
+    const back = await pool.query(`select game_id from games where game_id=$1`, [probe]);
     if (back.rowCount !== 1) throw new Error("probe row did not read back");
-    await pool.query(`delete from instances where instance_id=$1`, [probe]);
+    await pool.query(`delete from games where game_id=$1`, [probe]);
     ok("write → read → delete round-trip works");
 
     console.log(

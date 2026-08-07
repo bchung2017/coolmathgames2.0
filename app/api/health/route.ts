@@ -1,6 +1,6 @@
 import { getStore } from "@/src/db/store";
 import { pgSchema } from "@/src/db/schema-name";
-import { ensureFormatsSeeded } from "@/src/games/registry.server";
+import { ensureCartridgesSeeded } from "@/src/games/registry.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,13 +18,13 @@ export async function GET() {
   const usingPg = !!process.env.DATABASE_URL;
   try {
     const store = await getStore();
-    await ensureFormatsSeeded(store); // exercises write…
-    const formats = await store.allFormats(); // …and read
+    await ensureCartridgesSeeded(store); // exercises write…
+    const cartridges = await store.allCartridges(); // …and read
     return Response.json({
       ok: true,
       backend: store.backend, // "postgres" once DATABASE_URL is set, else "sqlite"
       schema: usingPg ? pgSchema() : null,
-      formats: formats.length,
+      cartridges: cartridges.length,
     });
   } catch (e) {
     return Response.json(

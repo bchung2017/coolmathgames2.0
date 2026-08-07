@@ -1,15 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DEMO, type DemoRole } from "@/src/demo/identity";
 
-type Role = "student" | "tutor";
-type Tab = "arcade" | "editor" | "xp";
+type Tab = "arcade" | "editor" | "catalog" | "xp";
+type CatalogView = "mine" | "marketplace";
 
 interface ChatMsg {
   who: "tutor" | "engine";
   text: string;
   pre?: string;
   previewId?: string;
+}
+
+/** Enriched game as returned by GET /api/games (row + cartridge join). */
+interface EnrichedGame {
+  game_id: string;
+  cartridge_id: string;
+  cartridge_name: string;
+  cartridge_author_id: string | null;
+  owner_id: string | null;
+  modded_from_id: string | null;
+  title: string | null;
+  topic: string;
+  misconception: string | null;
+  visibility: string;
+  status: string;
+  target_student_id: string | null;
 }
 
 const CARTRIDGES = [
@@ -19,8 +36,23 @@ const CARTRIDGES = [
   { id: "number-line", name: "Number Line Hopper", iso: "↔ integers & distance", soon: true },
 ];
 
+const COLORS = ["red", "green", "blue", "yellow"] as const;
+const THUMB: Record<string, string> = { "balance-scale": "⚖", "pipe-flow": "💧", "sorting-gates": "⎇" };
+
+function tabsFor(role: DemoRole): Tab[] {
+  if (role === "anon") return ["arcade"];
+  if (role === "student") return ["arcade", "xp"];
+  return ["arcade", "editor", "catalog", "xp"];
+}
+const TAB_LABEL: Record<Tab, string> = {
+  arcade: "Arcade",
+  editor: "Level Editor",
+  catalog: "Catalog",
+  xp: "XP",
+};
+
 export default function Home() {
-  const [role, setRole] = useState<Role>("student");
+  const [role, setRole] = useState<DemoRole>("anon");
   const [tab, setTab] = useState<Tab>("arcade");
 
   // Editor state
@@ -40,15 +72,80 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Swap the whole skin by toggling body.className (mockup's approach).
+  // Arcade + Catalog data
+  const [arcade, setArcade] = useState<EnrichedGame[]>([]);
+  const [arcadeLoading, setArcadeLoading] = useState(false);
+  const [catalogView, setCatalogView] = useState<CatalogView>("mine");
+  const [catalog, setCatalog] = useState<EnrichedGame[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  // Swap the whole skin by toggling body.className (mockup's approach), and keep
+  // the active tab valid for the current role.
   useEffect(() => {
     document.body.className = "role-" + role;
-    if (role === "student" && tab === "editor") setTab("arcade");
-  }, [role, tab]);
+    setTab((t) => (tabsFor(role).includes(t) ? t : "arcade"));
+  }, [role]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages]);
+
+  const loadArcade = useCallback(async () => {
+    setArcadeLoading(true);
+    try {
+      const url =
+        role === "student"
+          ? `/api/games?arcade=student&student_id=${DEMO.student.id}`
+          : `/api/games?visibility=public&status=published`;
+      const res = await fetch(url);
+      setArcade(await res.json());
+    } catch {
+      setArcade([]);
+    } finally {
+      setArcadeLoading(false);
+    }
+  }, [role]);
+
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    try {
+      const url =
+        catalogView === "mine"
+          ? `/api/games?owner_id=${DEMO.tutor.id}`
+          : `/api/games?visibility=public&status=published`;
+      const res = await fetch(url);
+      setCatalog(await res.json());
+    } catch {
+      setCatalog([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [catalogView]);
+
+  useEffect(() => {
+    if (tab === "arcade") loadArcade();
+  }, [tab, loadArcade]);
+
+  useEffect(() => {
+    if (tab === "catalog") loadCatalog();
+  }, [tab, loadCatalog]);
+
+  // Tutor actions
+  async function patchGame(id: string, body: Record<string, unknown>) {
+    await fetch(`/api/games/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    await loadCatalog();
+  }
+  const publish = (id: string) => patchGame(id, { status: "published", visibility: "public" });
+  const sendToStudent = (id: string) =>
+    patchGame(id, { status: "sent_to_student", target_student_id: DEMO.student.id });
+  async function modGame(id: string) {
+    await fetch(`/api/games/${id}/mod`, { method: "POST" });
+    await loadCatalog();
+  }
 
   async function generate() {
     if (busy) return;
@@ -59,7 +156,7 @@ export default function Home() {
       { who: "engine", text: "" },
     ]);
     try {
-      const res = await fetch(`/api/formats/${cartridge}/instances`, {
+      const res = await fetch(`/api/cartridges/${cartridge}/games`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ topic, misconception, instruction }),
@@ -72,7 +169,6 @@ export default function Home() {
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
-        // Split off the final instance marker if present.
         let visible = buf;
         let previewId: string | undefined;
         let pre: string | undefined;
@@ -82,7 +178,7 @@ export default function Home() {
           const rest = buf.slice(marker + "[[INSTANCE]]".length).trim();
           try {
             const parsed = JSON.parse(rest);
-            previewId = parsed.instanceId;
+            previewId = parsed.gameId;
             pre = parsed.preview;
           } catch {
             /* still streaming the json tail */
@@ -108,6 +204,8 @@ export default function Home() {
     }
   }
 
+  const tabs = tabsFor(role);
+
   return (
     <>
       <header>
@@ -120,208 +218,208 @@ export default function Home() {
         </h1>
         <div className="role-toggle">
           <span className="label">Demo:</span>
-          <button
-            data-role="student"
-            aria-pressed={role === "student"}
-            onClick={() => setRole("student")}
-          >
-            Student
-          </button>
-          <button
-            data-role="tutor"
-            aria-pressed={role === "tutor"}
-            onClick={() => setRole("tutor")}
-          >
-            Tutor
-          </button>
+          {(["anon", "student", "tutor"] as DemoRole[]).map((r) => (
+            <button key={r} data-role={r} aria-pressed={role === r} onClick={() => setRole(r)}>
+              {r}
+            </button>
+          ))}
         </div>
       </header>
 
       <nav role="tablist" aria-label="Main">
-        <button role="tab" aria-selected={tab === "arcade"} onClick={() => setTab("arcade")}>
-          &raquo; Arcade
-        </button>
-        {role === "tutor" && (
-          <button role="tab" aria-selected={tab === "editor"} onClick={() => setTab("editor")}>
-            &raquo; Level Editor
+        {tabs.map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+            &raquo; {TAB_LABEL[t]}
           </button>
-        )}
-        <button role="tab" aria-selected={tab === "xp"} onClick={() => setTab("xp")}>
-          &raquo; XP
-        </button>
+        ))}
       </nav>
       <div className="rainbow" aria-hidden="true" />
 
       <main>
-        {/* ================= ARCADE (demo content) ================= */}
+        {/* ================= ARCADE ================= */}
         <section hidden={tab !== "arcade"} role="tabpanel">
           <p className="section-head">
-            <span className="deco">&gt;&gt;&gt;&gt;</span> Your Arcade{" "}
+            <span className="deco">&gt;&gt;&gt;&gt;</span>{" "}
+            {role === "student" ? "Your Arcade" : "Arcade"}{" "}
             <span className="deco">&lt;&lt;&lt;&lt;</span>
           </p>
+          {arcadeLoading && <p className="empty">Loading…</p>}
+          {!arcadeLoading && arcade.length === 0 && (
+            <p className="empty">No published games yet — a tutor can publish one from the Catalog.</p>
+          )}
           <div className="game-grid">
-            <div className="mod red game-card">
-              <span className="badge blink">NEW!</span>
-              <div className="strip">Balance Scale</div>
-              <div className="thumb t1">⚖</div>
-              <h3>Tip The Scales!</h3>
-              <p className="meta">FORMAT: balance-scale • TOPIC: 2-step equations</p>
-              <p>Both sides have to match — can you keep the scale level for all 12 rounds?</p>
-              <a className="btn" href="/play/demo-balance-scale">
-                Play!
-              </a>
-            </div>
-            <div className="mod green game-card">
-              <div className="strip">Pipe Flow</div>
-              <div className="thumb t2">💧</div>
-              <h3>Flood Control!</h3>
-              <p className="meta">FORMAT: pipe-flow • TOPIC: unit rates</p>
-              <p>Water&apos;s coming in fast. Set the right flow rates before the tank overflows!</p>
-              <button className="btn" disabled>
-                Soon
-              </button>
-            </div>
-            <div className="mod blue game-card">
-              <div className="strip">Sorting Gates</div>
-              <div className="thumb t3">⎇</div>
-              <h3>Gate Keeper!</h3>
-              <p className="meta">FORMAT: sorting-gates • TOPIC: boolean logic</p>
-              <p>AND, OR, NOT — route every shape to the right bin. Can you clear level 8?</p>
-              <button className="btn" disabled>
-                Soon
-              </button>
-            </div>
-            <div className="mod yellow game-card">
-              <span className="badge red" data-role-only="student">
-                FOR YOU!
-              </span>
-              <span className="badge red" data-role-only="tutor">
-                SENT TO MAYA
-              </span>
-              <div className="strip">Balance Scale</div>
-              <div className="thumb t4">⚖</div>
-              <h3>Negative Numbers, Round 2!</h3>
-              <p className="meta">FORMAT: balance-scale • TOPIC: integers • MADE: tonight</p>
-              <p>Your tutor made this one just for you. Those minus signs won&apos;t know what hit &apos;em!</p>
-              <a className="btn" href="/play/demo-balance-scale">
-                Play!
-              </a>
-            </div>
+            {arcade.map((g, i) => (
+              <ArcadeCard key={g.game_id} game={g} index={i} role={role} />
+            ))}
           </div>
         </section>
 
-        {/* ================= LEVEL EDITOR (wired to the real generate route) ================= */}
-        <section hidden={tab !== "editor"} role="tabpanel">
-          <p className="section-head">
-            <span className="deco">&gt;&gt;&gt;&gt;</span> Level Editor{" "}
-            <span className="deco">&lt;&lt;&lt;&lt;</span>
-          </p>
-          <div className="editor-layout">
-            <div className="mod green">
-              <div className="strip">Build A Level</div>
-              <div className="chat-log" ref={logRef}>
-                {messages.map((m, i) => (
-                  <div className={"msg " + m.who} key={i}>
-                    <span className="who">&raquo; {m.who === "tutor" ? "You" : "Engine"}:</span>{" "}
-                    {m.text}
-                    {m.pre && <pre>{m.pre}</pre>}
-                    {m.previewId && (
-                      <p style={{ marginTop: 6 }}>
-                        <a className="btn yellow" href={`/play/${m.previewId}`}>
-                          Preview Level!
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                ))}
+        {/* ================= LEVEL EDITOR ================= */}
+        {role === "tutor" && (
+          <section hidden={tab !== "editor"} role="tabpanel">
+            <p className="section-head">
+              <span className="deco">&gt;&gt;&gt;&gt;</span> Level Editor{" "}
+              <span className="deco">&lt;&lt;&lt;&lt;</span>
+            </p>
+            <div className="editor-layout">
+              <div className="mod green">
+                <div className="strip">Build A Level</div>
+                <div className="chat-log" ref={logRef}>
+                  {messages.map((m, i) => (
+                    <div className={"msg " + m.who} key={i}>
+                      <span className="who">&raquo; {m.who === "tutor" ? "You" : "Engine"}:</span>{" "}
+                      {m.text}
+                      {m.pre && <pre>{m.pre}</pre>}
+                      {m.previewId && (
+                        <p style={{ marginTop: 6 }}>
+                          <a className="btn yellow" href={`/play/${m.previewId}`}>
+                            Preview Level!
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                  <input
+                    aria-label="Topic"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="topic"
+                    style={{ flex: 1, minWidth: 120 }}
+                    className="topic-in"
+                  />
+                  <input
+                    aria-label="Misconception"
+                    value={misconception}
+                    onChange={(e) => setMisconception(e.target.value)}
+                    placeholder="misconception"
+                    style={{ flex: 2, minWidth: 160 }}
+                    className="topic-in"
+                  />
+                </div>
+                <div className="chat-input">
+                  <input
+                    type="text"
+                    aria-label="Describe the level you want"
+                    value={instruction}
+                    onChange={(e) => setInstruction(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && generate()}
+                  />
+                  <button className="btn" onClick={generate} disabled={busy}>
+                    {busy ? "…" : "Send!"}
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-                <input
-                  aria-label="Topic"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="topic"
-                  style={{ flex: 1, minWidth: 120 }}
-                  className="topic-in"
-                />
-                <input
-                  aria-label="Misconception"
-                  value={misconception}
-                  onChange={(e) => setMisconception(e.target.value)}
-                  placeholder="misconception"
-                  style={{ flex: 2, minWidth: 160 }}
-                  className="topic-in"
-                />
-              </div>
-              <div className="chat-input">
-                <input
-                  type="text"
-                  aria-label="Describe the level you want"
-                  value={instruction}
-                  onChange={(e) => setInstruction(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && generate()}
-                />
-                <button className="btn" onClick={generate} disabled={busy}>
-                  {busy ? "…" : "Send!"}
-                </button>
+
+              <div className="mod blue">
+                <div className="strip">Pick A Cartridge</div>
+                <ul className="cartridge-list">
+                  {CARTRIDGES.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        aria-pressed={cartridge === c.id}
+                        disabled={c.soon}
+                        onClick={() => setCartridge(c.id)}
+                      >
+                        {c.name}
+                        {c.soon ? " (soon)" : ""}
+                        <span className="iso">{c.iso}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ marginTop: 10 }}>
+                  &raquo; New games land in <a href="#" onClick={(e) => { e.preventDefault(); setTab("catalog"); }}>Catalog → Mine</a> as drafts.
+                </p>
               </div>
             </div>
+          </section>
+        )}
 
-            <div className="mod blue">
-              <div className="strip">Pick A Cartridge</div>
-              <ul className="cartridge-list">
-                {CARTRIDGES.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      aria-pressed={cartridge === c.id}
-                      disabled={c.soon}
-                      onClick={() => setCartridge(c.id)}
-                    >
-                      {c.name}
-                      {c.soon ? " (soon)" : ""}
-                      <span className="iso">{c.iso}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <p style={{ marginTop: 10 }}>
-                &raquo; <a href="#">What&apos;s a cartridge?</a>
+        {/* ================= CATALOG (tutor) ================= */}
+        {role === "tutor" && (
+          <section hidden={tab !== "catalog"} role="tabpanel">
+            <p className="section-head">
+              <span className="deco">&gt;&gt;&gt;&gt;</span> Catalog{" "}
+              <span className="deco">&lt;&lt;&lt;&lt;</span>
+            </p>
+            <div className="sub-toggle">
+              <button
+                className={"btn" + (catalogView === "mine" ? "" : " yellow")}
+                aria-pressed={catalogView === "mine"}
+                onClick={() => setCatalogView("mine")}
+              >
+                Mine
+              </button>
+              <button
+                className={"btn" + (catalogView === "marketplace" ? "" : " yellow")}
+                aria-pressed={catalogView === "marketplace"}
+                onClick={() => setCatalogView("marketplace")}
+              >
+                Marketplace
+              </button>
+            </div>
+            {catalogLoading && <p className="empty">Loading…</p>}
+            {!catalogLoading && catalog.length === 0 && (
+              <p className="empty">
+                {catalogView === "mine"
+                  ? "No games yet — build one in the Level Editor."
+                  : "Nothing published to the marketplace yet."}
               </p>
+            )}
+            <div className="game-grid">
+              {catalog.map((g, i) => (
+                <CatalogCard
+                  key={g.game_id}
+                  game={g}
+                  index={i}
+                  view={catalogView}
+                  onPublish={() => publish(g.game_id)}
+                  onSend={() => sendToStudent(g.game_id)}
+                  onMod={() => modGame(g.game_id)}
+                />
+              ))}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* ================= XP (demo content) ================= */}
-        <section hidden={tab !== "xp"} role="tabpanel">
-          <p className="section-head" data-role-only="student">
-            &gt;&gt;&gt;&gt; Your XP &lt;&lt;&lt;&lt;
-          </p>
-          <p className="section-head" data-role-only="tutor">
-            <span className="deco">&gt;&gt;&gt;&gt;</span> Student: Maya R.{" "}
-            <span className="deco">&lt;&lt;&lt;&lt;</span>
-          </p>
-          <div className="xp-summary">
-            <div className="mod yellow">
-              <div className="strip">Total XP</div>
-              <div className="big">04,200</div>
+        {role !== "anon" && (
+          <section hidden={tab !== "xp"} role="tabpanel">
+            <p className="section-head" data-role-only="student">
+              &gt;&gt;&gt;&gt; Your XP &lt;&lt;&lt;&lt;
+            </p>
+            <p className="section-head" data-role-only="tutor">
+              <span className="deco">&gt;&gt;&gt;&gt;</span> Student: Maya R.{" "}
+              <span className="deco">&lt;&lt;&lt;&lt;</span>
+            </p>
+            <div className="xp-summary">
+              <div className="mod yellow">
+                <div className="strip">Total XP</div>
+                <div className="big">04,200</div>
+              </div>
+              <div className="mod green">
+                <div className="strip">Streak</div>
+                <div className="big">06 days</div>
+              </div>
+              <div className="mod red">
+                <div className="strip">Levels Beat</div>
+                <div className="big">017</div>
+              </div>
             </div>
-            <div className="mod green">
-              <div className="strip">Streak</div>
-              <div className="big">06 days</div>
+            <div className="mod blue">
+              <div className="strip">Concepts</div>
+              <ConceptRow name="Fractions" lv="LV 03 • last played 08/05" fills="ggggggg" cls="g" score="0700/1000" />
+              <ConceptRow name="Neg. Numbers" lv="LV 02 • last played tonight" fills="yyyy" cls="y" score="0400/1000" />
+              <ConceptRow name="Subtraction" lv="LV 01 • SUB-04 spotted!" fills="rr" cls="r" score="0200/1000" />
+              <ConceptRow name="Ratios" lv="LV 00 • not started" fills="" cls="g" score="0000/1000" />
             </div>
-            <div className="mod red">
-              <div className="strip">Levels Beat</div>
-              <div className="big">017</div>
-            </div>
-          </div>
-          <div className="mod blue">
-            <div className="strip">Concepts</div>
-            <ConceptRow name="Fractions" lv="LV 03 • last played 08/05" fills="ggggggg" cls="g" score="0700/1000" />
-            <ConceptRow name="Neg. Numbers" lv="LV 02 • last played tonight" fills="yyyy" cls="y" score="0400/1000" />
-            <ConceptRow name="Subtraction" lv="LV 01 • SUB-04 spotted!" fills="rr" cls="r" score="0200/1000" />
-            <ConceptRow name="Ratios" lv="LV 00 • not started" fills="" cls="g" score="0000/1000" />
-          </div>
-        </section>
+            <p className="empty" style={{ marginTop: 10 }}>
+              XP &amp; Rankings are still demo content — wiring them to real play sessions is the next feature.
+            </p>
+          </section>
+        )}
       </main>
 
       <footer>
@@ -332,6 +430,80 @@ export default function Home() {
         </p>
       </footer>
     </>
+  );
+}
+
+function ArcadeCard({ game, index, role }: { game: EnrichedGame; index: number; role: DemoRole }) {
+  const color = COLORS[index % COLORS.length];
+  const forYou = game.target_student_id === DEMO.student.id;
+  return (
+    <div className={`mod ${color} game-card`}>
+      {forYou && role === "student" && <span className="badge red">FOR YOU!</span>}
+      <div className="strip">{game.cartridge_name}</div>
+      <div className={`thumb t${(index % 4) + 1}`}>{THUMB[game.cartridge_id] ?? "🎮"}</div>
+      <h3>{game.title ?? game.topic}</h3>
+      <p className="meta">
+        FORMAT: {game.cartridge_id} • TOPIC: {game.topic}
+      </p>
+      {game.misconception && <p>Targets: {game.misconception}</p>}
+      <a className="btn" href={`/play/${game.game_id}`}>
+        Play!
+      </a>
+    </div>
+  );
+}
+
+function CatalogCard({
+  game,
+  index,
+  view,
+  onPublish,
+  onSend,
+  onMod,
+}: {
+  game: EnrichedGame;
+  index: number;
+  view: CatalogView;
+  onPublish: () => void;
+  onSend: () => void;
+  onMod: () => void;
+}) {
+  const color = COLORS[index % COLORS.length];
+  const tag = game.status === "sent_to_student" ? "sent" : game.status;
+  const tagLabel = game.status === "sent_to_student" ? "SENT TO MAYA" : game.status.toUpperCase();
+  return (
+    <div className={`mod ${color} game-card`}>
+      <div className="strip">{game.cartridge_name}</div>
+      <span className={`status-tag ${tag}`}>{tagLabel}</span>
+      <h3>{game.title ?? game.topic}</h3>
+      <p className="meta">
+        FORMAT: {game.cartridge_id} • TOPIC: {game.topic}
+      </p>
+      {view === "marketplace" && (
+        <p className="credit">
+          cartridge by: {game.cartridge_author_id ?? "official"}
+          {game.modded_from_id ? " • modded" : ""}
+        </p>
+      )}
+      <div className="card-actions">
+        <a className="btn yellow" href={`/play/${game.game_id}`}>
+          Play
+        </a>
+        {view === "mine" && game.status === "draft" && (
+          <button className="btn" onClick={onPublish}>
+            Publish
+          </button>
+        )}
+        {view === "mine" && (
+          <button className="btn" onClick={onSend}>
+            Send to Maya
+          </button>
+        )}
+        <button className="btn red" onClick={onMod}>
+          Mod
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -15,7 +15,7 @@ import { Pool } from "pg";
 import { pgSchema } from "../src/db/schema-name";
 import { schemaSql } from "../src/db/schema-sql";
 
-const TABLES = ["formats", "instances", "results"] as const;
+const TABLES = ["cartridges", "games", "play_sessions"] as const;
 
 async function main(): Promise<void> {
   const srcPath = process.argv[2] ?? process.env.SQLITE_PATH ?? "coolmathgames.db";
@@ -49,18 +49,25 @@ async function main(): Promise<void> {
     }
   }
 
-  const inserts: Record<(typeof TABLES)[number], string> = {
-    formats:
-      `INSERT INTO formats(format_id,name,concept_class,spec,created_at) VALUES($1,$2,$3,$4,$5)`,
-    instances:
-      `INSERT INTO instances(instance_id,format_id,topic,misconception,items,created_at) VALUES($1,$2,$3,$4,$5,$6)`,
-    results:
-      `INSERT INTO results(result_id,instance_id,student_id,score,detail,played_at) VALUES($1,$2,$3,$4,$5,$6)`,
-  };
   const columns: Record<(typeof TABLES)[number], string[]> = {
-    formats: ["format_id", "name", "concept_class", "spec", "created_at"],
-    instances: ["instance_id", "format_id", "topic", "misconception", "items", "created_at"],
-    results: ["result_id", "instance_id", "student_id", "score", "detail", "played_at"],
+    cartridges: [
+      "cartridge_id", "name", "slug", "concept_class", "author_id", "schema_json",
+      "engine_bundle_url", "status", "schema_version", "created_at", "updated_at",
+    ],
+    games: [
+      "game_id", "cartridge_id", "owner_id", "modded_from_id", "title", "topic",
+      "misconception", "instance_data_json", "visibility", "status",
+      "target_student_id", "schema_version_at_creation", "created_at", "updated_at",
+    ],
+    play_sessions: [
+      "session_id", "game_id", "player_id", "score", "completed", "detail",
+      "started_at", "ended_at",
+    ],
+  };
+  const inserts: Record<(typeof TABLES)[number], string> = {
+    cartridges: `INSERT INTO cartridges(${columns.cartridges.join(",")}) VALUES(${columns.cartridges.map((_, i) => `$${i + 1}`).join(",")})`,
+    games: `INSERT INTO games(${columns.games.join(",")}) VALUES(${columns.games.map((_, i) => `$${i + 1}`).join(",")})`,
+    play_sessions: `INSERT INTO play_sessions(${columns.play_sessions.join(",")}) VALUES(${columns.play_sessions.map((_, i) => `$${i + 1}`).join(",")})`,
   };
 
   for (const table of TABLES) {

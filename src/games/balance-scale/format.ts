@@ -1,4 +1,4 @@
-import type { BalanceInstance, BalanceItem, FormatServer } from "../types";
+import type { BalanceInstance, BalanceItem, CartridgeServer } from "../types";
 
 /**
  * balance-scale — the reference format.
@@ -61,11 +61,11 @@ function withChoices(
   return { prompt, answer, choices, trap };
 }
 
-export const balanceScale: FormatServer<BalanceInstance> = {
+export const balanceScale: CartridgeServer<BalanceInstance> = {
   id: "balance-scale",
   name: "Balance Scale",
   conceptClass: "linear-equations",
-  spec: SPEC,
+  schemaJson: SPEC,
 
   generate(topic, misconception) {
     // Gentle ramp of six equations; a real generator would tune to `topic`.

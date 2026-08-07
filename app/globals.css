@@ -112,6 +112,32 @@ header {
 }
 body.role-student [data-role-only="tutor"] { display: none !important; }
 body.role-tutor [data-role-only="student"] { display: none !important; }
+/* Anon rides the base (y2k) skin but is neither student nor tutor: hide both. */
+body.role-anon [data-role-only="student"],
+body.role-anon [data-role-only="tutor"] { display: none !important; }
+
+/* ---------- catalog + card actions ---------- */
+.sub-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+.status-tag {
+  display: inline-block;
+  font: bold 10px var(--font-body);
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 2px solid #000;
+  color: #000;
+  background: var(--mod-yellow);
+  margin-bottom: 8px;
+}
+.status-tag.draft     { background: #888; color: #fff; }
+.status-tag.published { background: var(--go-green); }
+.status-tag.sent      { background: var(--mod-blue); color: #fff; }
+.card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.card-actions .btn { padding: 6px 12px; min-height: 34px; font-size: 11px; }
+.credit { font: 11px var(--font-utility); color: var(--text-visited); margin-bottom: 6px; }
+.empty { color: #888; padding: 16px 0; }
+body.role-tutor .status-tag { border: none; border-radius: 999px; }
+body.role-tutor .credit { color: #5a6270; }
+body.role-tutor .empty { color: #5a6270; }
 
 /* ---------- nav ---------- */
 nav { background: var(--mod-yellow); display: flex; gap: 6px; padding: 6px 10px; }

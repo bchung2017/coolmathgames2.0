@@ -1,14 +1,14 @@
-import type { FormatEngine } from "./types";
+import type { CartridgeEngine } from "./types";
 
 /**
  * Client-side engine registry. Engines are loaded lazily (dynamic import) so a
- * play page only ships the one format it renders. Add a format by adding a
- * branch here plus its `engine.ts`.
+ * play page only ships the one cartridge it renders. Add a cartridge by adding
+ * a branch here plus its `engine.ts`.
  */
-export async function loadEngine(formatId: string): Promise<FormatEngine | null> {
-  switch (formatId) {
+export async function loadEngine(cartridgeId: string): Promise<CartridgeEngine | null> {
+  switch (cartridgeId) {
     case "balance-scale":
-      return (await import("./balance-scale/engine")).balanceScaleEngine as FormatEngine;
+      return (await import("./balance-scale/engine")).balanceScaleEngine as CartridgeEngine;
     default:
       return null;
   }

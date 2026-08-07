@@ -1,11 +1,16 @@
 /**
  * Shared shapes for the game engine.
  *
- * A FORMAT is a mechanic isomorphic to a concept class. Its `generate` fills a
- * schema for one student's confusion (server-side, later an LLM call); its
+ * A CARTRIDGE is a mechanic isomorphic to a concept class. Its `generate` fills
+ * a schema for one student's confusion (server-side, later an LLM call); its
  * `validate` is the quality gate that a filled instance must pass before it is
  * ever stored or rendered. The client-side engine (`mount`) only renders an
  * already-validated instance — it never generates content.
+ *
+ * (TECH_SPEC.md §4 targets a compiled engine bundle with a
+ * load/render/getScore/onComplete contract behind a sandboxed iframe; today the
+ * engine is still an in-app `mount()` module. That runtime change is tracked
+ * separately — this file only carries the current, pre-iframe contract.)
  */
 
 /** One playable challenge inside a balance-scale instance. */
@@ -20,7 +25,7 @@ export interface BalanceItem {
   trap?: number;
 }
 
-/** The full generated payload stored in instances.items (as JSON). */
+/** The full generated payload stored in games.instance_data_json (as JSON). */
 export interface BalanceInstance {
   items: BalanceItem[];
   ramp: "gentle" | "standard" | "steep";
@@ -33,13 +38,13 @@ export interface PlayResult {
   detail: Array<{ prompt: string; picked: number; correct: boolean; wasTrap: boolean }>;
 }
 
-/** Server-side format definition: metadata + the generate/validate pair. */
-export interface FormatServer<TInstance = unknown> {
+/** Server-side cartridge definition: metadata + the generate/validate pair. */
+export interface CartridgeServer<TInstance = unknown> {
   id: string;
   name: string;
   conceptClass: string;
-  /** JSON-schema-ish description of what an instance looks like (stored in formats.spec). */
-  spec: Record<string, unknown>;
+  /** JSON Schema describing what an instance looks like (stored in cartridges.schema_json). */
+  schemaJson: Record<string, unknown>;
   /** Fill the schema for a (topic, misconception). Deterministic stub today; an LLM call later. */
   generate(topic: string, misconception: string | null): TInstance;
   /** Quality gate. Return null if valid, else a human-readable reason. */
@@ -47,7 +52,7 @@ export interface FormatServer<TInstance = unknown> {
 }
 
 /** Client-side engine: renders a validated instance into a container. */
-export interface FormatEngine<TInstance = unknown> {
+export interface CartridgeEngine<TInstance = unknown> {
   mount(
     container: HTMLElement,
     instance: TInstance,

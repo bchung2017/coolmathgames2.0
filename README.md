@@ -2,6 +2,13 @@
 
 A thesis, and eventually an engine, for **teaching games in the post-AI tutoring market**: constrained LLM generation poured into pedagogically load-bearing game templates.
 
+> **Technical ground truth:** [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md) is the
+> canonical spec (data model, screen→API map, cartridge/engine contract). This
+> README carries the market/product thesis and the current build status; on any
+> technical conflict the tech spec wins. Canonical vocabulary: a **Cartridge** is
+> the mechanic/engine (formerly "format"), a **Game** is a filled instance
+> (formerly "instance"), a **PlaySession** is one play outcome (formerly "result").
+
 ---
 
 ## The market read: tutoring after AI
@@ -84,39 +91,40 @@ Notes: **Cartridge** and **Sidequest** have the best metaphors but are likely tr
 
 ---
 
-## The app (v1 skeleton)
+## The app
 
-A **Next.js (App Router)** app. The store's API routes colocate with the Node
-data layer, `/play/:id` is server-rendered for fast, unfurlable share links, and
-each game format is a pure-TypeScript canvas engine that React only mounts — so
-the formats (the moat) stay framework-independent.
+A **Next.js (App Router)** app. API routes colocate with the Node data layer,
+`/play/:id` is server-rendered for fast, unfurlable share links, and each
+cartridge engine is a framework-independent canvas module — the cartridges (the
+moat) stay portable. The target architecture, screens, and data model are
+defined in [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md); the frontend structure
+target is §6, the data model is §2.
 
-```
-app/
-  layout.tsx                     root; sets the skin class
-  page.tsx                       tabbed shell — Arcade / Level Editor / XP + role toggle
-  play/[instanceId]/             anonymous player surface (SSR + client canvas)
-  api/
-    formats/                     GET gallery · GET detail · POST generate (streaming)
-    instances/                   GET list · GET one · GET/POST results
-src/
-  db/                            dual-backend store (SQLite default → Postgres)
-  games/
-    types.ts                     Format = generate + validate (server) + engine (client)
-    balance-scale/               reference format: mechanic ↔ linear equations
-    registry.server.ts           code-defined formats, seeded into the DB
-    registry.client.ts           lazy engine loader
-```
-
-What runs end to end today: the **Level Editor** (tutor picks a cartridge,
-describes a misconception, and the engine streams back a schema-**validated**
-instance) → a **share link** → the **Play** surface renders the `balance-scale`
-canvas game → the **result** is recorded. The Arcade and XP tabs are the
-mockup's demo content; the generate→play→record loop is real.
+**What runs end to end today (v1 skeleton):** the **Level Editor** (a tutor picks
+a cartridge, describes a misconception, and the engine streams back a
+schema-**validated** Game) → a **share link** → the **Play** surface renders the
+`balance-scale` canvas game → the **PlaySession** is recorded. The Arcade and XP
+tabs are the mockup's demo content; the generate→play→record loop is real.
 
 The generate route is the only one that isn't a store pass-through: it runs the
-engine's fill + `validate` gate before storing. The fill is a deterministic stub
-today — swapping in an LLM changes only `balance-scale/format.ts::generate`.
+cartridge's fill + `validate` gate before storing. The fill is a deterministic
+stub today — per the spec, swapping in the Anthropic tool-constrained call
+(`TECH_SPEC.md` §3.6, §4.2) changes only `balance-scale/format.ts::generate`.
+
+The current skeleton predates the tech spec and still carries its **pre-spec
+shape** — it maps onto the spec's model but hasn't yet adopted it in full:
+
+| Spec (`TECH_SPEC.md` §2) | Skeleton today | Delta to close |
+| --- | --- | --- |
+| `Cartridge` | `formats` table | rename; add `author_id`, `slug`, `engine_bundle_url`, `status`, `schema_version` |
+| `Game` | `instances` table | rename; add `owner_id`, `modded_from_id` (lineage), `title`, `visibility`, `status`, `target_student_id` |
+| `PlaySession` | `results` table | rename; add `started_at`/`ended_at`/`completed`; `player_id` nullable (anon = `null`, not `"anon"`) |
+| `User` | — | not built; no auth/roles yet (demo toggle only) |
+| `XPEvent`, `Review` | — | not built; XP tab is hardcoded |
+| Sandboxed iframe + `postMessage` preview (§3.7) | in-process React `mount()` | move engine into a `sandbox="allow-scripts"` iframe fed by `postMessage` |
+
+Per `TECH_SPEC.md` §8, closing the authorship/lineage rows is step 1 — everything
+else depends on those constraints being right before data accumulates.
 
 ```bash
 npm install
@@ -146,13 +154,25 @@ unqualified, and a stray write can only ever hit this app's own tables. (Use
 the Supabase **Session pooler** on `:5432` — the transaction pooler drops
 `search_path`.)
 
-Three tables model the engine's domain:
+The canonical data model is `TECH_SPEC.md` §2 (`User`, `Cartridge`, `Game`,
+`PlaySession`, `XPEvent`, `Review`), with **PostgreSQL as the primary DB** so the
+mod-lineage self-FK and authorship constraints are DB-enforced (§1). The
+skeleton's dual-backend store currently implements a reduced, pre-spec subset —
+three tables that map onto the first three spec entities:
 
-- `formats` — the mechanic library (the moat): each row is a game format plus
-  its JSON instantiation spec.
-- `instances` — a generated, already-schema-validated game instance for a
-  `(topic, misconception)` pair.
-- `results` — a play outcome for one instance by one student.
+- `formats` → **Cartridge**: the mechanic library (the moat), each row a
+  cartridge plus its JSON schema. *(To add: `author_id`, `engine_bundle_url`,
+  `status`, `schema_version`.)*
+- `instances` → **Game**: a generated, schema-validated Game for a
+  `(topic, misconception)` pair. *(To add: `owner_id`, `modded_from_id` lineage,
+  `visibility`, `status`, `target_student_id`.)*
+- `results` → **PlaySession**: a play outcome for one Game. *(To add:
+  `completed`, `started_at`/`ended_at`; nullable `player_id` for anon.)*
+
+`User`, `XPEvent`, and `Review` are not yet modeled (spec §8 sequences auth/XP
+after the schema + reference-cartridge steps). The tech spec also calls for
+**Redis** (leaderboard sorted sets, §3.3) and **S3-compatible object storage**
+(engine bundles, §1) — neither is wired in the skeleton yet.
 
 ```bash
 npm install
@@ -174,8 +194,13 @@ second accidental run can't double-insert.
 ## Status
 
 Early-stage. The v1 skeleton runs the core loop (generate → play → record) with
-one reference format; `docs/UX.md` defines the screens and route map. Next up:
-real LLM-backed generation, more formats, and the author-facing gallery/results
-screens.
+one reference cartridge (`balance-scale`). [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md)
+is the technical ground truth (data model, screen→API map, cartridge contract)
+and [`docs/UX.md`](docs/UX.md) defines the screens and route map aligned to it.
+
+Next up, following the spec's build order (§8): the authorship/lineage schema
+migration (rename to Cartridge/Game/PlaySession + add `User`), then real
+Anthropic tool-constrained generation (§3.6), the sandboxed-iframe preview
+(§3.7), Student auth/XP/Rankings, and the Catalog/mod + Analytics surfaces.
 
 *Sources for the market read include Persistence Market Research, Technavio, Grand View Research, and My Engineering Buddy, cross-read skeptically — much of the published tutoring-market "growth" data comes from SEO firms selling reports.*
