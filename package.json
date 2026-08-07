@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "db:check": "tsx scripts/db-check.ts",
     "migrate:pg": "tsx scripts/migrate-sqlite-to-pg.ts"
   },
   "dependencies": {
