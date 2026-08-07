@@ -122,9 +122,12 @@ author's login.
 
 ## Open questions (decide before wiring routes)
 
-1. **Framework** — Next.js (React) colocates these API routes with the existing
-   Node store and gives SSR share links for free; alternatives are a Vite+React
-   SPA with a separate API server, or SvelteKit. Undecided.
+1. **Framework** — ✅ **Decided: Next.js (App Router).** API routes colocate with
+   the Node store; `/play/:id` is SSR for fast, unfurlable share links; game
+   engines stay as framework-independent TS canvas modules React mounts.
+   *Refinement from the mockup:* the authoring screen is a **streaming chat**
+   (Level Editor), so `POST /api/formats/:id/instances` streams. The store gap
+   (`allInstances`) is now closed.
 2. **v1 scope** — minimum is screens **3 + 4** (generate + play): enough to hand
    a real kid a real game and test the isomorphism thesis. The gallery (1),
    instances list (5), and results (6) are what make hand-testing comfortable

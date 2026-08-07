@@ -84,6 +84,54 @@ Notes: **Cartridge** and **Sidequest** have the best metaphors but are likely tr
 
 ---
 
+## The app (v1 skeleton)
+
+A **Next.js (App Router)** app. The store's API routes colocate with the Node
+data layer, `/play/:id` is server-rendered for fast, unfurlable share links, and
+each game format is a pure-TypeScript canvas engine that React only mounts — so
+the formats (the moat) stay framework-independent.
+
+```
+app/
+  layout.tsx                     root; sets the skin class
+  page.tsx                       tabbed shell — Arcade / Level Editor / XP + role toggle
+  play/[instanceId]/             anonymous player surface (SSR + client canvas)
+  api/
+    formats/                     GET gallery · GET detail · POST generate (streaming)
+    instances/                   GET list · GET one · GET/POST results
+src/
+  db/                            dual-backend store (SQLite default → Postgres)
+  games/
+    types.ts                     Format = generate + validate (server) + engine (client)
+    balance-scale/               reference format: mechanic ↔ linear equations
+    registry.server.ts           code-defined formats, seeded into the DB
+    registry.client.ts           lazy engine loader
+```
+
+What runs end to end today: the **Level Editor** (tutor picks a cartridge,
+describes a misconception, and the engine streams back a schema-**validated**
+instance) → a **share link** → the **Play** surface renders the `balance-scale`
+canvas game → the **result** is recorded. The Arcade and XP tabs are the
+mockup's demo content; the generate→play→record loop is real.
+
+The generate route is the only one that isn't a store pass-through: it runs the
+engine's fill + `validate` gate before storing. The fill is a deterministic stub
+today — swapping in an LLM changes only `balance-scale/format.ts::generate`.
+
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run build && npm start   # production
+```
+
+## Deploy (Render)
+
+`render.yaml` is a Render Blueprint: **New → Blueprint → connect the repo**.
+Builds with `npm ci && npm run build`, serves with `npm start`, auto-deploys on
+push. Runs on zero-config SQLite by default (ephemeral on the free tier); set
+`DATABASE_URL` to a Supabase Session-pooler URI (+ `DB_SCHEMA`) to persist to
+Postgres with no code change. See the comments in `render.yaml`.
+
 ## Data layer
 
 A portable, dual-backend persistence layer is scaffolded under `src/db/`. It
@@ -125,7 +173,9 @@ second accidental run can't double-insert.
 
 ## Status
 
-Early-stage thesis. No game engine yet — this README is the strategy of record,
-and `src/db/` is the portable persistence foundation it will build on.
+Early-stage. The v1 skeleton runs the core loop (generate → play → record) with
+one reference format; `docs/UX.md` defines the screens and route map. Next up:
+real LLM-backed generation, more formats, and the author-facing gallery/results
+screens.
 
 *Sources for the market read include Persistence Market Research, Technavio, Grand View Research, and My Engineering Buddy, cross-read skeptically — much of the published tutoring-market "growth" data comes from SEO firms selling reports.*

@@ -47,6 +47,7 @@ export interface Store {
   // instances — generated game instances
   insertInstance(row: InstanceRow): Promise<void>;
   getInstance(instanceId: string): Promise<InstanceRow | null>;
+  allInstances(): Promise<InstanceRow[]>;
   instancesByFormat(formatId: string): Promise<InstanceRow[]>;
 
   // results — play outcomes
@@ -63,8 +64,8 @@ const globalForStore = globalThis as unknown as { __store?: Promise<Store> };
 export function getStore(): Promise<Store> {
   if (!globalForStore.__store) {
     globalForStore.__store = process.env.DATABASE_URL
-      ? import("./postgres-store.js").then((m) => m.createPostgresStore())
-      : import("./sqlite-store.js").then((m) => m.createSqliteStore());
+      ? import("./postgres-store").then((m) => m.createPostgresStore())
+      : import("./sqlite-store").then((m) => m.createSqliteStore());
   }
   return globalForStore.__store;
 }

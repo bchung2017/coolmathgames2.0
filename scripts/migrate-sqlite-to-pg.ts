@@ -12,8 +12,8 @@
  */
 import Database from "better-sqlite3";
 import { Pool } from "pg";
-import { pgSchema } from "../src/db/schema-name.js";
-import { schemaSql } from "../src/db/schema-sql.js";
+import { pgSchema } from "../src/db/schema-name";
+import { schemaSql } from "../src/db/schema-sql";
 
 const TABLES = ["formats", "instances", "results"] as const;
 

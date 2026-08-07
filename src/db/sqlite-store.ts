@@ -1,11 +1,6 @@
 import Database from "better-sqlite3";
-import { schemaSql } from "./schema-sql.js";
-import type {
-  Store,
-  FormatRow,
-  InstanceRow,
-  ResultRow,
-} from "./store.js";
+import { schemaSql } from "./schema-sql";
+import type { Store, FormatRow, InstanceRow, ResultRow } from "./store";
 
 /**
  * The zero-config default backend: an on-disk SQLite file. Opened lazily by
@@ -66,6 +61,12 @@ class SqliteStore implements Store {
       .prepare(`SELECT * FROM instances WHERE instance_id=?`)
       .get(instanceId) as InstanceRow | undefined;
     return row ?? null;
+  }
+
+  async allInstances(): Promise<InstanceRow[]> {
+    return this.db
+      .prepare(`SELECT * FROM instances ORDER BY created_at DESC`)
+      .all() as InstanceRow[];
   }
 
   async instancesByFormat(formatId: string): Promise<InstanceRow[]> {

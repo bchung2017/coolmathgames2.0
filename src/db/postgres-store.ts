@@ -1,12 +1,7 @@
 import { Pool, types } from "pg";
-import { pgSchema } from "./schema-name.js";
-import { schemaSql } from "./schema-sql.js";
-import type {
-  Store,
-  FormatRow,
-  InstanceRow,
-  ResultRow,
-} from "./store.js";
+import { pgSchema } from "./schema-name";
+import { schemaSql } from "./schema-sql";
+import type { Store, FormatRow, InstanceRow, ResultRow } from "./store";
 
 // pg returns BIGINT (OID 20) as a string. Our BIGINTs are epoch-ms and small
 // scores, all inside JS's safe-integer range, so parse to Number to match the
@@ -98,6 +93,14 @@ class PostgresStore implements Store {
       [instanceId],
     );
     return res.rows[0] ?? null;
+  }
+
+  async allInstances(): Promise<InstanceRow[]> {
+    await this.ready;
+    const res = await this.pool.query<InstanceRow>(
+      `SELECT * FROM instances ORDER BY created_at DESC`,
+    );
+    return res.rows;
   }
 
   async instancesByFormat(formatId: string): Promise<InstanceRow[]> {

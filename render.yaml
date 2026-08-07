@@ -1,0 +1,45 @@
+# Render Blueprint — deploy coolmathgames2.0 from the GitHub repo.
+#
+# One-time setup on Render:
+#   Dashboard → New → Blueprint → connect the GitHub repo → pick this file.
+# Render then builds on every push to the connected branch.
+#
+# Persistence note: with no DATABASE_URL set, the app uses on-disk SQLite. On a
+# free instance that filesystem is EPHEMERAL — generated instances are lost on
+# redeploy or spin-down (fine for a demo). For durable data, either:
+#   (a) attach the disk block below (requires a paid instance), or
+#   (b) set DATABASE_URL to a Supabase Session-pooler URI (see .env.example) and
+#       set DB_SCHEMA — the app swaps to Postgres with no code change.
+
+services:
+  - type: web
+    name: coolmathgames2
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22.11.0"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Postgres schema namespace — only used if DATABASE_URL is set below.
+      - key: DB_SCHEMA
+        value: coolmathgames
+      # Where the default SQLite file lives. Point at the disk mount if attached.
+      - key: SQLITE_PATH
+        value: coolmathgames.db
+      # --- To persist to Postgres/Supabase instead of ephemeral SQLite: ---
+      # Set this in the Render dashboard (mark it secret), use the Supabase
+      # SESSION pooler URI on :5432 (not the transaction pooler):
+      # - key: DATABASE_URL
+      #   sync: false
+
+    # --- Durable SQLite via a disk (uncomment; requires a paid instance) ---
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # Then set SQLITE_PATH=/var/data/coolmathgames.db above.

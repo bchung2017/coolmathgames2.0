@@ -1,6 +1,12 @@
 node_modules/
 dist/
 
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
 # local env + secrets
 .env
 .env.local
