@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     const probe = "db-check-probe";
     await pool.query(
       `insert into games(game_id,cartridge_id,owner_id,modded_from_id,title,topic,misconception,instance_data_json,visibility,status,target_student_id,schema_version_at_creation,created_at,updated_at)
-       values($1,'balance-scale',null,null,'db:check probe','db:check probe',null,'{}','private','draft',null,1,0,0)
+       values($1,'number-line',null,null,'db:check probe','db:check probe',null,'{}','private','draft',null,1,0,0)
        on conflict(game_id) do nothing`,
       [probe],
     );

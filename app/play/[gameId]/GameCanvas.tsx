@@ -55,11 +55,17 @@ export default function GameCanvas({
 
   return (
     <div>
+      {/* Always-available exit — quit mid-game, not just after finishing. */}
+      <div className="play-exit">
+        <a className="btn yellow" href="/" aria-label="Exit to Arcade">
+          &larr; Exit
+        </a>
+      </div>
       <div className="play-stage" ref={hostRef} hidden={!!result} />
       {result && (
         <div>
           <p className="play-done">
-            Nice! You balanced {result.score} of {result.total}.
+            Nice! You landed {result.score} of {result.total}.
           </p>
           <p style={{ marginTop: 12 }}>
             <a className="btn" href="/">

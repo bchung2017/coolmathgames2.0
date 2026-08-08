@@ -9,18 +9,21 @@ import { DEMO } from "./identity";
  * Idempotent — guarded on the stable id.
  */
 export async function ensureDemoGamesSeeded(store: Store): Promise<void> {
-  if (await store.getGame("demo-balance-scale")) return;
-  const cartridge = getCartridgeServer("balance-scale");
+  if (await store.getGame("demo-number-line")) return;
+  const cartridge = getCartridgeServer("number-line");
   if (!cartridge) return;
-  const generated = cartridge.generate("2-step equations", "drops the sign on negatives");
+  const generated = cartridge.generate(
+    "comparing negative integers",
+    "−5 > −2 because 5 > 2 (orders by magnitude, not position)",
+  );
   await store.insertGame({
-    game_id: "demo-balance-scale",
+    game_id: "demo-number-line",
     cartridge_id: cartridge.id,
     owner_id: DEMO.tutor.id,
     modded_from_id: null,
-    title: "Tip The Scales!",
-    topic: "2-step equations",
-    misconception: "drops the sign on negatives",
+    title: "Walk The Line!",
+    topic: "comparing negative integers",
+    misconception: "−5 > −2 because 5 > 2 (orders by magnitude, not position)",
     instance_data_json: JSON.stringify(generated),
     visibility: "public",
     status: "published",

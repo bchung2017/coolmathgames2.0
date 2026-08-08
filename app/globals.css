@@ -328,6 +328,7 @@ main { padding: 10px; }
 
 /* ---------- play route ---------- */
 .play-wrap { max-width: 560px; margin: 0 auto; padding: 16px; text-align: center; }
+.play-exit { text-align: left; margin-bottom: 4px; }
 .play-stage { margin: 16px 0; }
 .play-done { font: bold 18px var(--font-body); color: var(--mod-green); text-transform: uppercase; }
 

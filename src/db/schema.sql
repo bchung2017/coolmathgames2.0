@@ -24,7 +24,7 @@
 --   play_sessions — a play outcome for one game by one player (or anon).
 
 CREATE TABLE IF NOT EXISTS cartridges (
-  cartridge_id      TEXT   PRIMARY KEY,   -- natural id, e.g. "balance-scale"
+  cartridge_id      TEXT   PRIMARY KEY,   -- natural id, e.g. "number-line"
   name              TEXT   NOT NULL,      -- human label, e.g. "Balance Scale"
   slug              TEXT   NOT NULL,      -- url slug (= cartridge_id for seeds)
   concept_class     TEXT   NOT NULL,      -- the isomorphic concept, e.g. "linear-equations"

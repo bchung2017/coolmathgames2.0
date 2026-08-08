@@ -1,5 +1,5 @@
 import type { CartridgeServer } from "./types";
-import { balanceScale } from "./balance-scale/format";
+import { numberLine } from "./number-line/format";
 import type { Store } from "../db/store";
 
 /**
@@ -9,7 +9,7 @@ import type { Store } from "../db/store";
  * seeded idempotently on first use.
  */
 export const CARTRIDGES_SERVER: Record<string, CartridgeServer> = {
-  [balanceScale.id]: balanceScale as CartridgeServer,
+  [numberLine.id]: numberLine as CartridgeServer,
 };
 
 export function getCartridgeServer(id: string): CartridgeServer | null {

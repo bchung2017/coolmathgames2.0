@@ -103,13 +103,18 @@ target is §6, the data model is §2.
 **What runs end to end today (v1 skeleton):** the **Level Editor** (a tutor picks
 a cartridge, describes a misconception, and the engine streams back a
 schema-**validated** Game) → a **share link** → the **Play** surface renders the
-`balance-scale` canvas game → the **PlaySession** is recorded. The Arcade and XP
+`number-line` canvas game → the **PlaySession** is recorded. The Arcade and XP
 tabs are the mockup's demo content; the generate→play→record loop is real.
+
+The reference cartridge is **`number-line`** — integers as positions on a track
+(positive = right, negative = left, adding a negative = walking backward),
+targeting the classic "−5 > −2 because 5 > 2" misconception, which shows up as
+literally standing in the wrong spot.
 
 The generate route is the only one that isn't a store pass-through: it runs the
 cartridge's fill + `validate` gate before storing. The fill is a deterministic
 stub today — per the spec, swapping in the Anthropic tool-constrained call
-(`TECH_SPEC.md` §3.6, §4.2) changes only `balance-scale/format.ts::generate`.
+(`TECH_SPEC.md` §3.6, §4.2) changes only `number-line/format.ts::generate`.
 
 The current skeleton predates the tech spec and still carries its **pre-spec
 shape** — it maps onto the spec's model but hasn't yet adopted it in full:
@@ -194,7 +199,7 @@ second accidental run can't double-insert.
 ## Status
 
 Early-stage. The v1 skeleton runs the core loop (generate → play → record) with
-one reference cartridge (`balance-scale`). [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md)
+one reference cartridge (`number-line`). [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md)
 is the technical ground truth (data model, screen→API map, cartridge contract)
 and [`docs/UX.md`](docs/UX.md) defines the screens and route map aligned to it.
 

@@ -13,7 +13,7 @@
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS cartridges (
-  cartridge_id      TEXT   PRIMARY KEY,          -- natural id, e.g. "balance-scale"
+  cartridge_id      TEXT   PRIMARY KEY,          -- natural id, e.g. "number-line"
   name              TEXT   NOT NULL,
   slug              TEXT   NOT NULL,
   concept_class     TEXT   NOT NULL,             -- the isomorphic concept, e.g. "linear-equations"

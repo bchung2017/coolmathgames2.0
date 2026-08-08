@@ -17,20 +17,23 @@ export const dynamic = "force-dynamic";
 // Stable demo game so the Arcade "Play!" links work without generating one.
 async function loadGame(gameId: string): Promise<GameRow | null> {
   const store = await getStore();
-  if (gameId === "demo-balance-scale") await ensureDemoGamesSeeded(store);
+  if (gameId === "demo-number-line") await ensureDemoGamesSeeded(store);
   let game = await store.getGame(gameId);
   if (!game && gameId.startsWith("demo-")) {
     // Other demo-* ids: mint an ad-hoc public demo on first visit.
-    const cartridge = getCartridgeServer("balance-scale")!;
-    const generated = cartridge.generate("2-step equations", "drops the sign on negatives");
+    const cartridge = getCartridgeServer("number-line")!;
+    const generated = cartridge.generate(
+      "comparing negative integers",
+      "−5 > −2 because 5 > 2",
+    );
     await store.insertGame({
       game_id: gameId,
       cartridge_id: cartridge.id,
       owner_id: null,
       modded_from_id: null,
-      title: "2-step equations",
-      topic: "2-step equations",
-      misconception: "drops the sign on negatives",
+      title: "comparing negative integers",
+      topic: "comparing negative integers",
+      misconception: "−5 > −2 because 5 > 2",
       instance_data_json: JSON.stringify(generated),
       visibility: "public",
       status: "published",
@@ -55,7 +58,7 @@ export async function generateMetadata({
   return {
     title: `${title} — coolmathgames 2.0`,
     description: game?.misconception
-      ? `A balance-scale level made to untangle: ${game.misconception}`
+      ? `A number-line level made to untangle: ${game.misconception}`
       : "A quick math minigame.",
   };
 }

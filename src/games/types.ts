@@ -13,21 +13,27 @@
  * separately — this file only carries the current, pre-iframe contract.)
  */
 
-/** One playable challenge inside a balance-scale instance. */
-export interface BalanceItem {
-  /** e.g. "2x + 3 = 7" */
-  prompt: string;
-  /** the correct value of x */
+/**
+ * One "walk the track" challenge on a number line. The number is just where you
+ * stand: positive moves right, negative moves left, adding a negative is walking
+ * backward. You start at `start`, apply `moves` in order, and land at `answer`.
+ */
+export interface NumberLineItem {
+  /** where the pawn starts standing */
+  start: number;
+  /** signed steps applied in order (negative = walk left / backward) */
+  moves: number[];
+  /** correct landing position — always start + sum(moves) */
   answer: number;
-  /** answer choices shown to the player (includes `answer`) */
+  /** candidate landing positions shown to the player (includes `answer`) */
   choices: number[];
-  /** the distractor that a student with the target misconception would pick */
+  /** the wrong spot the target misconception walks to (e.g. ignoring the sign) */
   trap?: number;
 }
 
 /** The full generated payload stored in games.instance_data_json (as JSON). */
-export interface BalanceInstance {
-  items: BalanceItem[];
+export interface NumberLineInstance {
+  items: NumberLineItem[];
   ramp: "gentle" | "standard" | "steep";
 }
 

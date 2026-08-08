@@ -7,8 +7,8 @@ import type { CartridgeEngine } from "./types";
  */
 export async function loadEngine(cartridgeId: string): Promise<CartridgeEngine | null> {
   switch (cartridgeId) {
-    case "balance-scale":
-      return (await import("./balance-scale/engine")).balanceScaleEngine as CartridgeEngine;
+    case "number-line":
+      return (await import("./number-line/engine")).numberLineEngine as CartridgeEngine;
     default:
       return null;
   }

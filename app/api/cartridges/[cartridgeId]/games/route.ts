@@ -46,7 +46,7 @@ export async function POST(
           `Got it — targeting ${misconception ? `misconception "${misconception}"` : "the topic"}. `,
         );
         await sleep(280);
-        send("Filling the balance-scale schema with items + distractors…\n");
+        send(`Filling the ${cartridgeId} schema with items + distractors…\n`);
         await sleep(320);
 
         const instance = cartridge.generate(topic, misconception);

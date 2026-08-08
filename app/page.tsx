@@ -30,14 +30,14 @@ interface EnrichedGame {
 }
 
 const CARTRIDGES = [
-  { id: "balance-scale", name: "Balance Scale", iso: "↔ equations & equality" },
+  { id: "number-line", name: "Number Line", iso: "↔ integers & signed movement" },
+  { id: "balance-scale", name: "Balance Scale", iso: "↔ equations & equality", soon: true },
   { id: "pipe-flow", name: "Pipe Flow", iso: "↔ rates & proportion", soon: true },
   { id: "sorting-gates", name: "Sorting Gates", iso: "↔ boolean logic", soon: true },
-  { id: "number-line", name: "Number Line Hopper", iso: "↔ integers & distance", soon: true },
 ];
 
 const COLORS = ["red", "green", "blue", "yellow"] as const;
-const THUMB: Record<string, string> = { "balance-scale": "⚖", "pipe-flow": "💧", "sorting-gates": "⎇" };
+const THUMB: Record<string, string> = { "number-line": "🚶", "balance-scale": "⚖", "pipe-flow": "💧", "sorting-gates": "⎇" };
 
 function tabsFor(role: DemoRole): Tab[] {
   if (role === "anon") return ["arcade"];
@@ -56,10 +56,10 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("arcade");
 
   // Editor state
-  const [cartridge, setCartridge] = useState("balance-scale");
-  const [topic, setTopic] = useState("multi-digit subtraction");
+  const [cartridge, setCartridge] = useState("number-line");
+  const [topic, setTopic] = useState("comparing negative integers");
   const [misconception, setMisconception] = useState(
-    "subtracts smaller digit from larger regardless of position (borrow-avoidance)",
+    "−5 > −2 because 5 > 2 (orders by magnitude, not position)",
   );
   const [instruction, setInstruction] = useState("Make a level that traps that mistake");
   const [messages, setMessages] = useState<ChatMsg[]>([
