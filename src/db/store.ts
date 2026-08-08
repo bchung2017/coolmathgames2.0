@@ -85,6 +85,12 @@ export interface Store {
   gamesByCartridge(cartridgeId: string): Promise<GameRow[]>;
   queryGames(filter: GameFilter): Promise<GameRow[]>;
   updateGame(gameId: string, patch: GamePatch): Promise<void>;
+  /**
+   * Delete a game and its play sessions; detaches any mods derived from it
+   * (their modded_from_id is nulled, not cascade-deleted). Returns games
+   * deleted (0 or 1).
+   */
+  deleteGame(gameId: string): Promise<number>;
 
   // play_sessions — play outcomes
   insertPlaySession(row: PlaySessionRow): Promise<void>;

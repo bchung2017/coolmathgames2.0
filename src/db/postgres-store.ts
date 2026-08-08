@@ -148,6 +148,25 @@ class PostgresStore implements Store {
     await this.pool.query(`UPDATE games SET ${sets.join(",")} WHERE game_id=$${i}`, params);
   }
 
+  async deleteGame(gameId: string): Promise<number> {
+    await this.ready;
+    // Detach mods, drop play sessions, then the game — one transaction, one conn.
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE games SET modded_from_id=NULL WHERE modded_from_id=$1`, [gameId]);
+      await client.query(`DELETE FROM play_sessions WHERE game_id=$1`, [gameId]);
+      const res = await client.query(`DELETE FROM games WHERE game_id=$1`, [gameId]);
+      await client.query("COMMIT");
+      return res.rowCount ?? 0;
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   async insertPlaySession(r: PlaySessionRow): Promise<void> {
     await this.ready;
     await this.pool.query(
